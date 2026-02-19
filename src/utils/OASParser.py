@@ -404,27 +404,41 @@ class OASParser:
     def _get_request_config(self):
         return self.request
     
-    def __parse_response(self,data:dict) -> dict:
+    def __parse_response(self, data: dict) -> dict:
         result = {}
-        for response_code,response_value in data.items():
-            if isinstance(response_value,dict):
-                result[response_code] = self.__find_schema(response_value)
+        for response_code, response_value in data.items():
+            if isinstance(response_value, dict):
+                schemas = self.__find_schemas(response_value)
+                if schemas:  # если нашли хотя бы одну схему
+                    result[response_code] = schemas
         return result
-    
-    def __find_schema(self,data:dict):
+
+    def __find_schemas(self, data):
+        """Возвращает список всех найденных схем в структуре"""
+        schemas = []
+        
         if isinstance(data, dict):
+            # Проверяем наличие schema
             if 'schema' in data:
-                return data['schema']
-            for value in data.values():
-                result = self.__find_schema(value)
-                if result is not None:
-                    return result
+                schemas.append(data['schema'])
+            
+            # Проверяем наличие прямого $ref
+            if '$ref' in data:
+                schemas.append({'$ref': data['$ref']})
+            
+            # Рекурсивно ищем во всех значениях
+            for key, value in data.items():
+                found_schemas = self.__find_schemas(value)
+                schemas.extend(found_schemas)
+                    
         elif isinstance(data, list):
             for item in data:
-                result = self.__find_schema(item)
-                if result is not None:
-                    return result
-        return None
+                found_schemas = self.__find_schemas(item)
+                schemas.extend(found_schemas)
+        
+        return schemas
+
+
     @log_this(log_args=True, log_result=False)
     def _schema_to_payload(self, schema: dict) -> dict:
         """Преобразует одну схему в payload структуру"""
