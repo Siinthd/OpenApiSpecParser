@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: Petstore - OpenAPI 3.0
+  version: 1.0.1
+servers:
+  - url: https://petstore.com/api/v1
+tags:
+  - name: Dialogs
+    description: Получение диалогов
+paths:
+  /dialogs:
+    post:
+      tags:
+        - Dialogs
+      summary: Поиск диалогов
+      description: Массив диалогов
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                date:
+                  type: string
+                  format: datetime
+      responses:
+        '200':
+          description: Успешный запрос
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dialogs:
+                    type: array
+                    description: Массив диалогов
+                    items:
+                      $ref: '#/components/schemas/Dialog'
+                  pagination:
+                    allOf:
+                    - $ref: '#/components/schemas/Pagination'
+                    - type: object
+                      properties:
+                        totalRecords:
+                          type: integer
+                          example: 5000
+                          description: Количество записей всего
+        '400':
+          description: Некорректный формат запроса
+        '500':
+          description: Внутренняя ошибка сервера
+components:
+  schemas:
+    Dialog:
+      type: object
+      description: диалог сотрудника с клиентом
+      properties:
+        id:
+          type: integer
+          description: идентификатор записи в БД
+          example: 10
+        managerId:
+          type: integer
+          description: идентификатор сотрудника
+          example: 123456
+        clientPhoneNumber:
+          type: string
+          description: Номер телефона клиента
+          example: +7999888***
+        dialog:
+          type: string
+          description: Диалога клиента с сотрудником
+          example: "blablablabla"
+        date:
+          type: string
+          format: datetime
+      required: [id, managerId, clientPhoneNumber, dialog, date]
+    Pagination:
+      type: object
+      description: объект пагинации
+      properties:
+        pageIndex:
+          type: integer
+          example: 1
+        recordsPerPage:
+          type: integer
+          example: 5
+      required: [pageIndex, recordsPerPage]

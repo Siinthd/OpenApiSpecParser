@@ -135,8 +135,17 @@ class OASParser:
                         if server_list:
                             endpoint_data[server_variable] = server_list
                         operation_id = method_details.get('operationId', '')
+                        match =  re.search(r'https?://([^/\s]+)', server.get('url'))
+                        server_id = ''
+                        if match:
+                            server_id = '_'.join(match.group(1).split('.')[:-1])
+
                         if operation_id:
                             endpoint_data['operationId'] = operation_id
+                        else:
+                            path_id = re.findall(r'\{(\w+)\}', path)
+                            operation_id = f"{server_id}_{method_name}_by_{'_'.join(path_id)}" if path_id else path.split('/')[-1]
+                            endpoint_data['operationId'] = operation_id    
                         
                         if operation_id not in result:
                             result[operation_id] = {}
@@ -147,7 +156,6 @@ class OASParser:
         return self._resolve_refs_in_operation(result,self.schemas)
 
     def _transform_spec_to_requests(self, api_spec: dict) -> dict:
-
         logging.info('_transform_spec_to_requests')
         requests_map = {}
         
@@ -174,7 +182,7 @@ class OASParser:
                         param_in = param.get("in")
                         param_required = param.get("required", False)
                         
-                        if param_name and param_in == "path":
+                        if param_name and param_in in ("path","header"):
                             all_variables.add(param_name)
                             if param_required:
                                 required_variables.add(param_name)
@@ -213,66 +221,158 @@ class OASParser:
                 # 5. Параметры из request_body
                 request_body = spec.get("request_body", {})
                 
-                def extract_body_params(body_spec):
-                    """Извлекает имена параметров из body"""
+                def extract_body_params(body_spec, parent_path="", skip_parent=False):
+                    """
+                    Извлекает имена параметров из body
+                    skip_parent: True если нужно пропустить имя родительского контейнера
+                    """
                     params = set()
                     required_params = set()
                     
                     if not body_spec or not isinstance(body_spec, dict):
                         return params, required_params
                     
-                    for param_name, param_schema in body_spec.items():
-                        if isinstance(param_schema, dict):
+                    # Проверяем наличие properties (для объектов)
+                    if "properties" in body_spec:
+                        properties = body_spec.get("properties", {})
+                        required_fields = body_spec.get("required", [])
+                        
+                        for prop_name, prop_schema in properties.items():
+                            # Формируем полное имя параметра
+                            if skip_parent:
+                                # Если нужно пропустить родителя, используем только имя свойства
+                                full_name = prop_name
+                            elif parent_path:
+                                full_name = f"{parent_path}.{prop_name}"
+                            else:
+                                full_name = prop_name
+                            
                             # Добавляем параметр
-                            params.add(param_name)
+                            params.add(full_name)
                             
                             # Проверяем required
-                            if param_schema.get("required", False):
-                                required_params.add(param_name)
+                            if prop_name in required_fields:
+                                required_params.add(full_name)
                             
-                            # Обрабатываем вложенные объекты (если есть)
-                            if param_schema.get("type") == "object":
-                                # Ищем вложенные параметры
-                                for key, value in param_schema.items():
-                                    if isinstance(value, dict) and key not in ['type', 'required', 'nullable', 'format']:
-                                        nested_params, nested_required = extract_body_params({key: value})
-                                        # Добавляем с префиксом
-                                        for p in nested_params:
-                                            params.add(f"{param_name}.{p}")
-                                        for p in nested_required:
-                                            required_params.add(f"{param_name}.{p}")
-                            
-                            # Обрабатываем массивы с объектами
-                            if param_schema.get("type") == "array" and "items" in param_schema:
-                                items = param_schema["items"]
-                                if isinstance(items, dict):
-                                    # Проверяем, есть ли в items объекты со свойствами
-                                    if any(isinstance(v, dict) and 'name' in v for v in items.values()):
-                                        for item_name, item_schema in items.items():
-                                            if isinstance(item_schema, dict):
-                                                item_full_name = f"{param_name}[].{item_name}"
-                                                params.add(item_full_name)
-                                                if item_schema.get("required", False):
-                                                    required_params.add(item_full_name)
-                        elif isinstance(param_schema, list):
-                            if param_name == 'required':
-                                for item in param_schema:
-                                    required_params.add(item)
-                            else:
-                                for item in param_schema:
-                                    params.add(item)
+                            # Рекурсивно обрабатываем вложенные объекты
+                            if isinstance(prop_schema, dict):
+                                prop_type = prop_schema.get("type")
+                                
+                                # Если это объект с properties
+                                if prop_type == "object" and "properties" in prop_schema:
+                                    nested_params, nested_required = extract_body_params(
+                                        prop_schema,
+                                        parent_path=full_name,
+                                        skip_parent=False
+                                    )
+                                    params.update(nested_params)
+                                    required_params.update(nested_required)
+                                
+                                # Если это массив объектов
+                                elif prop_type == "array" and "items" in prop_schema:
+                                    items = prop_schema["items"]
+                                    if isinstance(items, dict) and items.get("type") == "object" and "properties" in items:
+                                        nested_params, nested_required = extract_body_params(
+                                            items,
+                                            parent_path=f"{full_name}[*]",
+                                            skip_parent=False
+                                        )
+                                        params.update(nested_params)
+                                        required_params.update(nested_required)
+                    
+                    # Если это не объект с properties, а просто словарь с полями
+                    else:
+                        for field_name, field_schema in body_spec.items():
+                            if isinstance(field_schema, dict) and 'type' in field_schema:
+                                # Формируем полное имя
+                                if skip_parent:
+                                    full_name = field_name
+                                elif parent_path:
+                                    full_name = f"{parent_path}.{field_name}"
+                                else:
+                                    full_name = field_name
+                                
+                                # Добавляем параметр
+                                params.add(full_name)
+                                
+                                # Проверяем required
+                                if field_schema.get("required", False):
+                                    required_params.add(full_name)
+                                
+                                # Рекурсивно обрабатываем вложенные объекты
+                                field_type = field_schema.get("type")
+                                if field_type == "object" and "properties" in field_schema:
+                                    nested_params, nested_required = extract_body_params(
+                                        field_schema,
+                                        parent_path=full_name,
+                                        skip_parent=False
+                                    )
+                                    params.update(nested_params)
+                                    required_params.update(nested_required)
+                                elif field_type == "array" and "items" in field_schema:
+                                    items = field_schema["items"]
+                                    if isinstance(items, dict):
+                                        if items.get("type") == "object" and "properties" in items:
+                                            nested_params, nested_required = extract_body_params(
+                                                items,
+                                                parent_path=f"{full_name}[*]",
+                                                skip_parent=False
+                                            )
+                                            params.update(nested_params)
+                                            required_params.update(nested_required)
                     
                     return params, required_params
                 
                 # Извлекаем параметры из body
                 if request_body:
-                    body_params, body_required = extract_body_params(request_body)
+                    body_params = set()
+                    body_required = set()
+                    
+                    # Проверяем структуру request_body
+                    if "properties" in request_body:
+                        properties = request_body.get("properties", {})
+                        
+                        # Обрабатываем каждое поле верхнего уровня
+                        for prop_name, prop_schema in properties.items():
+                            # Проверяем, является ли это поле контейнером параметров (например, "params")
+                            if (isinstance(prop_schema, dict) and 
+                                prop_schema.get("type") == "object"):
+                                
+                                # Получаем все поля внутри этого объекта
+                                if "properties" in prop_schema:
+                                    # Это объект с properties - обрабатываем его поля как параметры верхнего уровня
+                                    container_params, container_required = extract_body_params(
+                                        prop_schema,
+                                        skip_parent=True  # Пропускаем имя контейнера
+                                    )
+                                    body_params.update(container_params)
+                                    body_required.update(container_required)
+                                else:
+                                    # Это объект без properties - возможно, поля на верхнем уровне
+                                    for field_name, field_schema in prop_schema.items():
+                                        if isinstance(field_schema, dict) and 'type' in field_schema:
+                                            # Добавляем поле как параметр верхнего уровня
+                                            body_params.add(field_name)
+                                            if field_schema.get("required", False):
+                                                body_required.add(field_name)
+                            else:
+                                # Обычное поле не-контейнер
+                                field_params, field_required = extract_body_params(
+                                    {prop_name: prop_schema}
+                                )
+                                body_params.update(field_params)
+                                body_required.update(field_required)
+                    else:
+                        # Если нет properties, пробуем обработать как есть
+                        body_params, body_required = extract_body_params(request_body)
+                    
                     all_variables.update(body_params)
                     required_variables.update(body_required)
+                    
                 
                 # Формируем финальную конфигурацию
                 requests_map[key] = {
-                    "operationalId" : key,
+                    "operationalId": key,
                     "method": method,
                     "url": url,
                     "headers": {
@@ -285,9 +385,6 @@ class OASParser:
                 }
                 
                 # Отладка
-                #print(f"Processed {key}:")
-                #print(f"  variables: {requests_map[key]['variables']}")
-                #print(f"  required: {requests_map[key]['required']}")
                 
             except Exception as e:
                 print(f"Предупреждение: Ошибка обработки endpoint '{operation_id}': {e}")
@@ -337,9 +434,6 @@ class OASParser:
         return None
 
     def _schema_to_payload(self, schema: dict) -> dict:
-        global COUNTER
-        logging.info(COUNTER)
-        COUNTER+=1
         """Преобразует одну схему в payload структуру"""
         payload = {}
         composite_types = ['oneOf', 'anyOf', 'allOf']
@@ -545,8 +639,8 @@ class OASParser:
 
 if __name__ == "__main__":
 
-
+    
     parser = OASParser('C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/accuweather.yaml')
 
-    entity  = parser.request.get('getCurrentConditions')
+    entity  = parser.request.get()
   
