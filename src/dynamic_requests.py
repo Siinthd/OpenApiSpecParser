@@ -1,9 +1,7 @@
 import json
 import httpx
 from typing import Optional, Dict, Any
-import asyncio
-from src.utils.api_reader import OASParser
-
+import copy
 class ClientBase:
     """Base class for API client"""
 
@@ -54,7 +52,7 @@ class URESTAdapter():
             tokens_file: Путь к файлу с токенами (опционально)
             base_url: Базовый URL для относительных путей (опционально)
         """
-        self.config = config.copy()
+        self.config = copy.deepcopy(config)
         self.tokens_file = tokens_file
         self.base_url = base_url
         self.endpoints = {}
@@ -186,9 +184,10 @@ class URESTAdapter():
 
 
 if __name__ == "__main__":
-      
 
-    parser = OASParser('C:/Users/kdenis/mu_code/accuweather.yaml')
+    from utils.api_reader import OASParser
+
+    parser = OASParser('C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/accuweather.yaml')
 
     entity  = parser.request.get('getCurrentConditions')
   
