@@ -1,0 +1,172 @@
+openapi: 3.1.0
+info:
+  title: RANDOM.ORG Core API
+  description: |
+    The RANDOM.ORG Core API allows you to generate true random numbers and other random values
+    for use in applications like games, simulations, and security-sensitive contexts.
+    It offers both a Basic API and a Signed API for verifiable randomness.
+  version: 1.0.0
+  contact:
+    name: RANDOM.ORG Support
+    url: https://www.random.org/contact/
+servers:
+  - url: https://api.random.org
+    description: Main production server
+paths:
+  /json-rpc/2/invoke:
+    post:
+      summary: Invoke a random generation method
+      description: |
+        The main endpoint for invoking all API methods. The API uses JSON-RPC 2.0.
+        You specify the method (e.g., `generateIntegers`, `generateStrings`) and its parameters in the request body.
+      operationId: invokeRandomMethod
+      tags:
+        - Random Generation
+      parameters:
+        - name: apiKey
+          in: header
+          description: Your API key for authentication.
+          required: true
+          schema:
+            type: string
+            example: "12345678-1234-1234-1234-123456789012"
+      requestBody:
+        required: true
+        content:
+          application/json-rpc:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  description: JSON-RPC version specifier.
+                  enum: ['2.0']
+                  example: "2.0"
+                method:
+                  type: string
+                  description: The API method to call (e.g., generateIntegers, generateStrings, generateUUIDs, verifySignature).
+                  example: "generateIntegers"
+                params:
+                  type: object
+                  description: Parameters for the specified method. Structure varies by method.
+                  properties:
+                    apiKey:
+                      type: string
+                      description: Your API key (can also be passed in the header).
+                    n:
+                      type: integer
+                      description: Number of random values to generate.
+                      example: 10
+                    min:
+                      type: integer
+                      description: Lower bound for integers.
+                      example: 1
+                    max:
+                      type: integer
+                      description: Upper bound for integers.
+                      example: 100
+                    replacement:
+                      type: boolean
+                      description: Allow the same number to be chosen more than once.
+                      default: true
+                    base:
+                      type: integer
+                      description: Base for integer representation (e.g., 2, 8, 10, 16).
+                      default: 10
+                    length:
+                      type: integer
+                      description: Length of strings to generate.
+                    characters:
+                      type: string
+                      description: Allowed characters for string generation.
+                  example:
+                    n: 10
+                    min: 1
+                    max: 100
+                id:
+                  type: integer
+                  description: Request identifier, echoed back in the response.
+                  example: 42
+            examples:
+              generateIntegers:
+                summary: Generate 10 random integers
+                value:
+                  jsonrpc: "2.0"
+                  method: "generateIntegers"
+                  params:
+                    apiKey: "12345678-1234-1234-1234-123456789012"
+                    n: 10
+                    min: 1
+                    max: 100
+                    replacement: true
+                  id: 1
+      responses:
+        "200":
+          description: Successful response with random data.
+          content:
+            application/json-rpc:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                    example: "2.0"
+                  result:
+                    type: object
+                    properties:
+                      random:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            description: The array of generated random values.
+                            items:
+                              oneOf:
+                                - type: integer
+                                - type: string
+                              example: 42
+                          completionTime:
+                            type: string
+                            format: date-time
+                            description: Timestamp of generation.
+                      bitsUsed:
+                        type: integer
+                        description: Random bits consumed by this request.
+                      bitsLeft:
+                        type: integer
+                        description: Remaining bits available for the day.
+                      requestsLeft:
+                        type: integer
+                        description: Remaining number of requests for the day.
+                      advisoryDelay:
+                        type: integer
+                        description: Recommended delay (in milliseconds) before the next request.
+                  id:
+                    type: integer
+                    example: 1
+              examples:
+                generateIntegersSuccess:
+                  summary: Example response for generateIntegers
+                  value:
+                    jsonrpc: "2.0"
+                    result:
+                      random:
+                        data: [12, 57, 83, 21, 95, 34, 8, 72, 44, 61]
+                        completionTime: "2024-05-20 12:34:56Z"
+                      bitsUsed: 200
+                      bitsLeft: 987800
+                      requestsLeft: 999
+                      advisoryDelay: 1000
+                    id: 1
+        "400":
+          description: Bad request (e.g., invalid parameters, JSON-RPC format error).
+        "403":
+          description: Forbidden (e.g., invalid or missing API key, insufficient bits/quota).
+        "429":
+          description: Too Many Requests (rate limit exceeded).
+        "500":
+          description: Internal server error on RANDOM.ORG's side.

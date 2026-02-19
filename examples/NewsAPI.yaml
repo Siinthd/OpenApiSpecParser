@@ -1,0 +1,314 @@
+openapi: 3.0.0
+info:
+  title: NewsAPI
+  version: v2
+  description: Search worldwide news with code
+  contact:
+    name: NewsAPI
+    url: https://newsapi.org
+  license:
+    name: Attribution 4.0 International (CC BY 4.0)
+    url: https://creativecommons.org/licenses/by/4.0/
+
+servers:
+  - url: https://newsapi.org/v2
+    description: Production server
+
+paths:
+  /everything:
+    get:
+      summary: Search through millions of articles
+      description: |
+        Search through millions of articles from over 150,000 large and small news sources and blogs.
+        This includes breaking news as well as lesser-known articles.
+      operationId: getEverything
+      parameters:
+        - name: q
+          in: query
+          description: Keywords or phrases to search for
+          required: false
+          schema:
+            type: string
+        - name: searchIn
+          in: query
+          description: Fields to restrict search to (title, description, content)
+          required: false
+          schema:
+            type: string
+        - name: sources
+          in: query
+          description: Comma-separated list of sources (e.g., bbc-news,techcrunch)
+          required: false
+          schema:
+            type: string
+        - name: domains
+          in: query
+          description: Comma-separated list of domains to restrict search to
+          required: false
+          schema:
+            type: string
+        - name: excludeDomains
+          in: query
+          description: Comma-separated list of domains to remove from results
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          description: A date and optional time for the oldest article allowed
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: A date and optional time for the newest article allowed
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: language
+          in: query
+          description: The 2-letter ISO-639-1 code of the language you want to get headlines for
+          required: false
+          schema:
+            type: string
+            enum: [ar, de, en, es, fr, he, it, nl, no, pt, ru, sv, ud, zh]
+        - name: sortBy
+          in: query
+          description: The order to sort articles in
+          required: false
+          schema:
+            type: string
+            enum: [relevancy, popularity, publishedAt]
+            default: publishedAt
+        - name: pageSize
+          in: query
+          description: The number of results to return per page (1-100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: page
+          in: query
+          description: Use this to page through the results
+          required: false
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlesResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '429':
+          description: Too many requests
+        '500':
+          description: Server error
+      security:
+        - apiKey: []
+
+  /top-headlines:
+    get:
+      summary: Get top headlines
+      description: |
+        This endpoint provides live top and breaking headlines for a country, specific category, or multiple sources.
+        You can also search with keywords. Articles are sorted by the earliest date published first.
+      operationId: getTopHeadlines
+      parameters:
+        - name: country
+          in: query
+          description: The 2-letter ISO 3166-1 code of the country
+          required: false
+          schema:
+            type: string
+            pattern: '^[a-z]{2}$'
+        - name: category
+          in: query
+          description: The category you want to get headlines for
+          required: false
+          schema:
+            type: string
+            enum: [business, entertainment, general, health, science, sports, technology]
+        - name: sources
+          in: query
+          description: Comma-separated list of sources (BBC, CNN, etc.)
+          required: false
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: Keywords or a phrase to search for
+          required: false
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: The number of results to return per page (1-100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: page
+          in: query
+          description: Use this to page through the results
+          required: false
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlesResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '429':
+          description: Too many requests
+        '500':
+          description: Server error
+      security:
+        - apiKey: []
+
+  /sources:
+    get:
+      summary: Get news sources
+      description: |
+        This endpoint returns the subset of news publishers that top headlines are available from.
+        It's mainly a convenience endpoint that you can use to keep track of the publishers available on the API.
+      operationId: getSources
+      parameters:
+        - name: category
+          in: query
+          description: Find sources that display news of this category
+          required: false
+          schema:
+            type: string
+            enum: [business, entertainment, general, health, science, sports, technology]
+        - name: language
+          in: query
+          description: Find sources that display news in a specific language
+          required: false
+          schema:
+            type: string
+            enum: [ar, de, en, es, fr, he, it, nl, no, pt, ru, sv, ud, zh]
+        - name: country
+          in: query
+          description: Find sources that display news in a specific country
+          required: false
+          schema:
+            type: string
+            pattern: '^[a-z]{2}$'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourcesResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '429':
+          description: Too many requests
+        '500':
+          description: Server error
+      security:
+        - apiKey: []
+
+components:
+  schemas:
+    Article:
+      type: object
+      properties:
+        source:
+          $ref: '#/components/schemas/Source'
+        author:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        url:
+          type: string
+          format: uri
+        urlToImage:
+          type: string
+          format: uri
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+        content:
+          type: string
+          nullable: true
+
+    Source:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        name:
+          type: string
+
+    ArticlesResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+        totalResults:
+          type: integer
+        articles:
+          type: array
+          required: true
+          items:
+            $ref: '#/components/schemas/Article'
+        code:
+          type: string
+          description: Error code (only present when status is "error")
+        message:
+          type: string
+          description: Error message (only present when status is "error")
+
+    SourcesResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Source'
+        code:
+          type: string
+          description: Error code (only present when status is "error")
+        message:
+          type: string
+          description: Error message (only present when status is "error")
+
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+      description: Your API key

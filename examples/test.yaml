@@ -1,0 +1,333 @@
+openapi: 3.0.0
+info:
+  title: Yandex Weather API - Тариф «Оптимальный (REST)»
+  description: |
+    API предоставляет фактические и прогнозные данные о погоде для указанных географических координат.
+    Для работы требуется ключ доступа `X-Yandex-Weather-Key`.
+    Официальная документация: https://yandex.ru/dev/weather/doc/ru/concepts/forecast-rest
+  version: 1.0.0
+servers:
+  - url: https://api.weather.yandex.ru/v2
+paths:
+  /forecast:
+    get:
+      summary: Получить прогноз и фактические данные о погоде
+      description: |
+        Возвращает текущую погоду и прогноз на указанное количество дней для заданных координат.
+        Обязательными параметрами являются широта (`lat`) и долгота (`lon`).
+      parameters:
+        - name: lat
+          in: query
+          description: Широта в градусах. Обязательный параметр.
+          required: true
+          schema:
+            type: number
+            format: float
+            example: 55.75396
+        - name: lon
+          in: query
+          description: Долгота в градусах. Обязательный параметр.
+          required: true
+          schema:
+            type: number
+            format: float
+            example: 37.620393
+        - name: lang
+          in: query
+          description: Язык ответа.
+          required: false
+          schema:
+            type: string
+            enum:
+              - ru_RU
+              - be_BY
+              - kk_KZ
+              - tr_TR
+              - en_US
+            default: ru_RU
+          example: ru_RU
+        - name: limit
+          in: query
+          description: Количество дней в прогнозе, включая текущий.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 7
+            default: 7
+          example: 5
+        - name: hours
+          in: query
+          description: Возвращать ли почасовой прогноз для каждого дня.
+          required: false
+          schema:
+            type: boolean
+            default: true
+          example: true
+        - name: extra
+          in: query
+          description: Возвращать ли расширенную информацию об осадках.
+          required: false
+          schema:
+            type: boolean
+            default: false
+          example: false
+      responses:
+        '200':
+          description: Успешный ответ с данными о погоде.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherResponse'
+        '400':
+          description: Некорректный запрос (например, отсутствуют обязательные параметры).
+        '401':
+          description: Не указан или указан неверный ключ API.
+        '403':
+          description: Доступ запрещен (тариф недоступен или закончилась квота).
+        '404':
+          description: Местоположение по указанным координатам не найдено.
+      security:
+        - ApiKeyAuth: []
+components:
+  schemas:
+    WeatherResponse:
+      type: object
+      properties:
+        now:
+          type: integer
+          description: Время сервера в формате Unixtime.
+          example: 1609858800
+        now_dt:
+          type: string
+          format: date-time
+          description: Время сервера в UTC.
+          example: "2025-03-03T15:00:00.000Z"
+        info:
+          $ref: '#/components/schemas/InfoObject'
+        fact:
+          $ref: '#/components/schemas/FactObject'
+        forecasts:
+          type: array
+          description: Массив прогнозов по дням.
+          items:
+            $ref: '#/components/schemas/ForecastObject'
+    InfoObject:
+      type: object
+      description: Информация о населенном пункте и часовом поясе.
+      properties:
+        lat:
+          type: number
+          format: float
+          example: 55.75396
+        lon:
+          type: number
+          format: float
+          example: 37.620393
+        tzinfo:
+          type: object
+          properties:
+            offset:
+              type: integer
+              description: Смещение от UTC в секундах.
+              example: 10800
+            name:
+              type: string
+              example: "Москва"
+            abbr:
+              type: string
+              example: "MSK"
+            dst:
+              type: boolean
+              example: false
+        def_pressure_mm:
+          type: integer
+          description: Норма давления (мм рт.ст.)
+          example: 746
+        def_pressure_pa:
+          type: integer
+          description: Норма давления (гектопаскали)
+          example: 995
+        url:
+          type: string
+          format: uri
+          example: "https://yandex.ru/pogoda/moscow"
+    FactObject:
+      type: object
+      description: Информация о текущей погоде.
+      properties:
+        temp:
+          type: integer
+          description: Температура воздуха в градусах Цельсия.
+          example: -5
+        feels_like:
+          type: integer
+          description: Ощущаемая температура.
+          example: -10
+        icon:
+          type: string
+          description: Код иконки погоды.
+          example: "ovc"
+        condition:
+          type: string
+          description: Код состояния погоды.
+          enum: [clear, partly-cloudy, cloudy, overcast, light-rain, rain, heavy-rain, showers, wet-snow, light-snow, snow, snow-showers, hail, thunderstorm, thunderstorm-with-rain, thunderstorm-with-hail]
+          example: "cloudy"
+        wind_speed:
+          type: number
+          format: float
+          example: 3.5
+        wind_dir:
+          type: string
+          enum: [nw, n, ne, e, se, s, sw, w, c]
+          example: "n"
+        pressure_mm:
+          type: integer
+          example: 748
+        pressure_pa:
+          type: integer
+          example: 997
+        humidity:
+          type: integer
+          example: 85
+        daytime:
+          type: string
+          enum: [d, n]
+          example: "d"
+        polar:
+          type: boolean
+        season:
+          type: string
+          enum: [summer, autumn, winter, spring]
+          example: "winter"
+        obs_time:
+          type: integer
+          description: Время замера данных (Unixtime)
+          example: 1609858800
+        is_thunder:
+          type: boolean
+        prec_type:
+          type: integer
+          enum: [0, 1, 2, 3, 4]
+          example: 0
+        prec_strength:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0
+        cloudness:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.75
+      # ПРИМЕЧАНИЕ: Для краткости здесь перечислены не все свойства из документации.
+      # В спецификацию можно добавить остальные поля: `temp_water`, `wind_gust`, `phenom_icon`, `phenom_condition` и другие по аналогии.
+    ForecastObject:
+      type: object
+      description: Прогноз погоды на один день.
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2025-03-04"
+        date_ts:
+          type: integer
+          example: 1609945200
+        week:
+          type: integer
+          example: 10
+        parts:
+          type: object
+          description: Прогноз по частям суток.
+          properties:
+            day:
+              $ref: '#/components/schemas/ForecastPart'
+            night:
+              $ref: '#/components/schemas/ForecastPart'
+            day_short:
+              $ref: '#/components/schemas/ForecastShortPart'
+          # ПРИМЕЧАНИЕ: Также могут присутствовать объекты `morning`, `evening`, `night_short`.
+    ForecastPart:
+      type: object
+      description: Детальный прогноз на часть суток.
+      properties:
+        temp_min:
+          type: integer
+          example: -8
+        temp_max:
+          type: integer
+          example: -2
+        temp_avg:
+          type: integer
+          example: -5
+        feels_like:
+          type: integer
+          example: -12
+        condition:
+          type: string
+          example: "cloudy"
+        wind_speed:
+          type: number
+          format: float
+          example: 2.5
+        wind_dir:
+          type: string
+          example: "sw"
+        pressure_mm:
+          type: integer
+          example: 750
+        humidity:
+          type: integer
+          example: 80
+        prec_mm:
+          type: number
+          format: float
+          example: 0.5
+        prec_prob:
+          type: integer
+          example: 30
+      # ПРИМЕЧАНИЕ: Для сохранения структуры ответа краткой здесь также указаны не все возможные поля.
+    ForecastShortPart:
+      type: object
+      description: Краткий 12-часовой прогноз.
+      properties:
+        temp:
+          type: integer
+          description: Температура (для day_short - дневная, для night_short - минимальная ночью).
+          example: -3
+        feels_like:
+          type: integer
+          example: -8
+        condition:
+          type: string
+          example: "light-snow"
+        wind_speed:
+          type: number
+          format: float
+          example: 3.0
+        wind_dir:
+          type: string
+          example: "n"
+        pressure_mm:
+          type: integer
+          example: 752
+        humidity:
+          type: integer
+          example: 85
+        prec_mm:
+          type: number
+          format: float
+          example: 0.8
+        prec_prob:
+          type: integer
+          example: 60
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Yandex-Weather-Key
+      description: |
+        Ключ API, полученный при подключении к Яндекс Погоде.
+        **ВАЖНО**: В реальных запросах для тестирования подставьте ваш ключ.

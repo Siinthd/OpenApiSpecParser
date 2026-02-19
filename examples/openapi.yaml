@@ -1,0 +1,1576 @@
+openapi: 3.0.0
+info:
+  title: Weather Forecast API
+  description: |
+    API для получения прогноза погоды, текущих метеоусловий и поиска населенного пункта.
+    
+    # О сервисе
+    Сервис предоставляет данные о погоде – прогноз с различными шагами агрегирования, текущие условия и информацию о населенном пункте.
+    
+    # Аутентификация
+    Для аутентификации используйте токен доступа. В каждом запросе добавляйте заголовок `X-Gismeteo-Token` со значением `<API_TOKEN>`.
+    
+    # Ошибки API
+    ## Общий формат ошибок
+    Все ошибки возвращаются в следующем формате:
+    ```json
+    {
+      "meta": {
+        "message": "Текст ошибки",
+        "code": "HTTP код ошибки"
+      },
+      "response": {}
+    }
+    ```
+    ## Список ошибок
+    | HTTP код | Сообщение | Описание |
+    |----------|-----------|----------|
+    | 400 | `One of the 'query', 'ip' or 'latitude and longitude' parameters must be set` | Не указаны параметры поиска |
+    | 400 | `Invalid argument` | Неверный аргумент |
+    | 400 | `The 'limit' parameter must be an integer from 1 to X` | Неверный параметр limit |
+    | 400 | `'ip' param required` | Отсутствует параметр IP |
+    | 400 | `'ip' param invalid` | Неверный формат IP |
+    | 400 | `'query' param required` | Отсутствует параметр query |
+    | 400 | `'query' param is empty` | Пустой параметр query |
+    | 400 | `Latitude must be in range [-90.0, 90.0] and longitude must be in range [-180.0, 180.0]` | Неверные координаты |
+    | 400 | `Invalid ID` | Неверный ID города |
+    | 400 | `Параметр 'days' нужно обязательно задать целым числом от 3 до 10` | Неверный параметр days |
+    | 404 | `Page not found` | Ресурс не найден |
+    | 500 | `Internal Server Error` | Внутренняя ошибка сервера |
+    
+    # Пример запроса:
+    ```
+    GET /v2/weather/forecast/{id}/ HTTP/1.1
+    Host: api.gismeteo.net
+    X-Gismeteo-Token: <API_TOKEN>
+    ```
+  version: 2.0.1
+  contact:
+    name: API Support
+    email: info@gismeteo.ru
+    url: https://www.gismeteo.ru
+  x-logo:
+    url: "https://static.gismeteo.st/yaml/logo.beta.png"
+    altText: Gismeteo
+
+servers:
+  - url: https://api.gismeteo.net/v2
+    description: Основной сервер API
+
+paths:
+  /weather/current/:
+    get:
+      summary: Текущая погода по координатам
+      description: >
+        Возвращает текущую погоду.
+        Для определения местоположения необходимо передать параметры latitude и longitude.
+      parameters:
+        - name: latitude
+          in: query
+          description: >
+            Географическая широта центра населённого пункта
+          example: "55.755798"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -90.0
+            maximum: 90.0
+        - name: longitude
+          in: query
+          description: >
+            Географическая долгота центра населённого пункта
+          example: "37.617599"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -180.0
+            maximum: 180.0
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherApiResponse"
+  /weather/current/{id}/:
+    get:
+      summary: Текущая погода по id населенного пункта
+      description: >
+        Возвращает текущую погоду.
+        Для определения местоположения необходимо передать параметры latitude и longitude.
+      parameters:
+        - name: id
+          in: path
+          description: >
+            ID населенного пункта
+          example: 4368
+          schema:
+            type: integer
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherApiResponse"
+      security:
+        - ApiKeyAuth: [ ]
+  /weather/forecast/:
+    get:
+      summary: Прогноз с шагом 3 часа по координатам
+      description: >
+        Прогноз погоды на 1...10 дней. Общее количество сроков за сутки — 8.
+        Для определения местоположения необходимо передать параметры latitude и longitude.
+      parameters:
+        - name: latitude
+          in: query
+          description: >
+            Географическая широта центра населённого пункта
+          example: "55.755798"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -90.0
+            maximum: 90.0
+        - name: longitude
+          in: query
+          description: >
+            Географическая долгота центра населённого пункта
+          example: "37.617599"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -180.0
+            maximum: 180.0
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherListApiResponse"
+      security:
+        - ApiKeyAuth: [ ]
+  /weather/forecast/{id}/:
+    get:
+      summary: Прогноз с шагом 3 часа по id населенного пункта
+      description: >
+        Прогноз погоды на 1...10 дней. Общее количество сроков за сутки — 8.
+        Для определения местоположения необходимо передать параметры latitude и longitude.
+      parameters:
+        - name: id
+          in: path
+          description: >
+            ID населенного пункта
+          example: 4368
+          schema:
+            type: integer
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherListApiResponse"
+      security:
+        - ApiKeyAuth: [ ]
+  /weather/forecast/by_day_part/:
+    get:
+      summary: Прогноз с шагом 6 часов по координатам
+      description: >
+        Прогноз погоды на срок до 10 дней. Общее количество сроков за сутки — 4.
+        Для определения местоположения необходимо передать параметры latitude и longitude.
+      parameters:
+        - name: latitude
+          in: query
+          description: >
+            Географическая широта центра населённого пункта
+          example: "55.755798"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -90.0
+            maximum: 90.0
+        - name: longitude
+          in: query
+          description: >
+            Географическая долгота центра населённого пункта
+          example: "37.617599"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -180.0
+            maximum: 180.0
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherListApiResponse"
+      security:
+        - ApiKeyAuth: [ ]
+  /weather/forecast/by_day_part/{id}/:
+    get:
+      summary: Прогноз с шагом 6 часов по id населенного пункта
+      description: >
+        Прогноз погоды на срок до 10 дней. Общее количество сроков за сутки — 4.
+        Для определения местоположения необходимо передать параметры latitude и longitude.
+      parameters:
+        - name: id
+          in: path
+          description: >
+            ID населенного пункта
+          example: 4368
+          schema:
+            type: integer
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherListApiResponse"
+      security:
+        - ApiKeyAuth: [ ]
+  /weather/forecast/aggregate/:
+    get:
+      summary: Прогноз с шагом 24 часа по координатам
+      description: >
+        Прогноз погоды на срок до 10 дней. Общее количество сроков за сутки — 1.
+        Для определения местоположения необходимо передать параметры latitude и longitude.
+      parameters:
+        - name: latitude
+          in: query
+          description: >
+            Географическая широта центра населённого пункта
+          example: "55.755798"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -90.0
+            maximum: 90.0
+        - name: longitude
+          in: query
+          description: >
+            Географическая долгота центра населённого пункта
+          example: "37.617599"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -180.0
+            maximum: 180.0
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregateListResponse"
+      security:
+        - ApiKeyAuth: [ ]
+  /weather/forecast/aggregate/{id}/:
+    get:
+      summary: Прогноз с шагом 24 часа по id населенного пункта
+      description: >
+        Прогноз погоды на срок до 10 дней. Общее количество сроков за сутки — 1.
+        Для определения местоположения необходимо передать параметры latitude и longitude.
+      parameters:
+        - name: id
+          in: path
+          description: >
+            ID населенного пункта
+          example: 4368
+          schema:
+            type: integer
+        - name: days
+          in: query
+          description: Количество возвращаемых дней
+          example: 10
+          schema:
+            type: integer
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregateListResponse"
+      security:
+        - ApiKeyAuth: [ ]
+
+  /search/cities/:
+    get:
+      summary: Поиск населенных пунктов
+      description: >
+        Поиск населенных пунктов по координатам, ip-адресу и названию.
+        По координатам дополнительно нужно указывать параметр limit(не более 10, то есть в ответе массив объектов).
+        По ip возвращается 1 населенный пункт.
+        В ответе по названию нет ограничений на кол-во возвращаемых объектов.
+      parameters:
+        - name: limit
+          in: query
+          description: Лимит кол-ва возвращаемых объектов при запросе по координатам и названию
+          example: ru
+          schema:
+            type: integer
+        - name: latitude
+          in: query
+          description: >
+            Географическая широта центра населённого пункта
+          example: "55.755798"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -90.0
+            maximum: 90.0
+        - name: longitude
+          in: query
+          description: >
+            Географическая долгота центра населённого пункта
+          example: "37.617599"
+          schema:
+            type: "number"
+            format: "float64"
+            minimum: -180.0
+            maximum: 180.0
+        - name: ip
+          in: query
+          description: запрос по ip
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: запрос по названию
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: |
+            Возможные значения:
+              * ru (значение по умолчанию)
+              * en
+              * ua
+              * lt
+              * lv
+              * pl
+              * ro
+          example: ru
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Успешный ответ с данными о погоде
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/SearchByCoordinatesResponse"
+                  - $ref: "#/components/schemas/SearchByIPResponse"
+                  - $ref: "#/components/schemas/SearchByNameResponse"
+
+      security:
+        - ApiKeyAuth: [ ]
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Gismeteo-Token
+  schemas:
+    Meta:
+      type: object
+      description: Информация о статусе запроса
+      properties:
+        message:
+          type: string
+          example: ""
+          description: Детали при ошибке
+        code:
+          type: string
+          example: "200"
+          description: HTTP-код ответа
+
+    DateTimeInfo:
+      type: object
+      description: Дата и время данных
+      properties:
+        UTC:
+          type: string
+          format: date-time
+          example: "2025-10-14 14:00:00"
+          description: По стандарту UTC
+        unix:
+          type: integer
+          format: int64
+          example: 1760450400
+          description: В формате UNIX по стандарту UTC
+        local:
+          type: string
+          format: date-time
+          example: "2025-10-14 17:00:00"
+          description: По локальному времени географического объекта
+        time_zone_offset:
+          type: integer
+          description: Разница в минутах между локальным временем географического объекта и временем по UTC
+          example: 180
+
+    Temperature:
+      type: object
+      description: Температура
+      properties:
+        air:
+          type: object
+          description: Воздух
+          properties:
+            C:
+              type: number
+              format: float
+              nullable: true
+              example: 31.4
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              nullable: true
+              example: 88.4
+              description: В градусах Фаренгейта
+        comfort:
+          type: object
+          description: Комфорт (по ощущению)
+          properties:
+            C:
+              type: number
+              format: float
+              example: 31.4
+              nullable: true
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              example: 88.4
+              nullable: true
+              description: В градусах Фаренгейта
+        water:
+          type: object
+          description: Вода
+          properties:
+            C:
+              type: number
+              format: float
+              nullable: true
+              example: 27.4
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              nullable: true
+              example: 81.2
+              description: В градусах Фаренгейта
+    WeatherDescription:
+      type: object
+      description: Описание погоды
+      properties:
+        full:
+          type: string
+          example: "Ясно"
+          description: Полное описание
+
+    Humidity:
+      type: object
+      description: Влажность
+      properties:
+        percent:
+          type: integer
+          example: 14
+          description: В процентах
+
+    Pressure:
+      type: object
+      description: Атмосферное давление
+      properties:
+        mm_hg_atm:
+          type: integer
+          example: 707
+          description: В мм ртутного столба
+        in_hg:
+          type: number
+          format: float
+          example: 27.8
+          description: В дюймах ртутного столба
+        h_pa:
+          type: integer
+          example: 942
+          description: В гектопаскалях
+
+    Cloudiness:
+      type: object
+      description: Облачность
+      properties:
+        percent:
+          type: integer
+          example: 0
+          description: В процентах
+        type:
+          type: integer
+          example: 0
+          description: |
+            По шкале от 0 до 3:
+              * 0 -	Ясно
+              * 1 -	Малооблачно
+              * 2 - Облачно
+              * 3 - Пасмурно
+              * 101 - Переменная облачность
+
+    Precipitation:
+      type: object
+      description: Осадки
+      properties:
+        type:
+          type: integer
+          example: 0
+          description: |
+            Тип осадков:
+              * 0 -	Нет осадков
+              * 1 -	Дождь
+              * 2 -	Снег
+              * 3 -	Смешанные осадки
+        amount:
+          type: number
+          format: float
+          example: 0
+          description: Количество осадков в мм.
+        intensity:
+          type: integer
+          nullable: true
+          example: 0
+          description: |
+            Интенсивность осадков:
+              * 0 -	Нет осадков
+              * 1 -	Небольшой дождь / снег
+              * 2 -	Дождь / снег
+              * 3 -	Сильный дождь / снег
+        type_ext:
+          type: integer
+          nullable: true
+          example: 1
+          description: Более не используется
+        correction:
+          type: integer
+          nullable: true
+          example: 1
+          description: Более не используется, всегда null
+        duration:
+          type: integer
+          nullable: true
+          example: 1
+          description: Более не используется, всегда 0
+
+    AggregatePrecipitation:
+      type: object
+      description: Осадки
+      properties:
+        type:
+          type: integer
+          example: 0
+          description: |
+            Тип осадков:
+              * 0 -	Нет осадков
+              * 1 -	Дождь
+              * 2 -	Снег
+              * 3 -	Смешанные осадки
+        amount:
+          type: number
+          format: float
+          example: 0
+          description: Количество осадков в мм.
+        intensity:
+          type: integer
+          nullable: true
+          example: 0
+          description: |
+            Интенсивность осадков:
+              * 0 -	Нет осадков
+              * 1 -	Небольшой дождь / снег
+              * 2 -	Дождь / снег
+              * 3 -	Сильный дождь / снег
+        type_ext:
+          type: integer
+          nullable: true
+          example: 1
+          description: Более не используется
+
+    WindDirection:
+      type: object
+      description: Направление
+      properties:
+        scale_8:
+          type: integer
+          nullable: true
+          example: 2
+          description: |
+            По шкале от 1 до 8:
+              * 0 -	Штиль
+              * 1 -	Северный
+              * 2 -	Северо-восточный
+              * 3 -	Восточный
+              * 4 -	Юго-восточный
+              * 5 -	Южный
+              * 6 -	Юго-западный
+              * 7 -	Западный
+              * 8 -	Северо-западный
+        degree:
+          type: integer
+          nullable: true
+          example: 33
+          description: В градусах
+
+    WindSpeed:
+      type: object
+      description: Скорость
+      properties:
+        km_h:
+          type: integer
+          nullable: true
+          example: 13
+          description: километров в час
+        mi_h:
+          type: integer
+          nullable: true
+          example: 8
+          description: миль в час
+        m_s:
+          type: integer
+          nullable: true
+          example: 3
+          description: В метрах в секунду
+
+    Wind:
+      type: object
+      description: Ветер
+      properties:
+        direction:
+          $ref: "#/components/schemas/WindDirection"
+        speed:
+          $ref: "#/components/schemas/WindSpeed"
+
+    Radiation:
+      type: object
+      description: УФ-индекс
+      properties:
+        UVB:
+          type: integer
+          nullable: true
+          example: 0
+          description: |
+            УФ-индекс (баллы), уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+        uvb_index:
+          type: integer
+          nullable: true
+          example: 0
+          description: |
+            Параметр аналогичный UVB
+
+    WeatherResponse:
+      type: object
+      description: Погодные данные
+      properties:
+        kind:
+          type: string
+          description: |
+            Тип погодных данных: прогноз или фактическое наблюдение: 
+              * Obs - Наблюдение
+              * Frc - Прогноз (предоставляется, если отсутствуют данные наблюдений)
+          example: "Frc"
+        date:
+          $ref: "#/components/schemas/DateTimeInfo"
+        temperature:
+          $ref: "#/components/schemas/Temperature"
+        description:
+          $ref: "#/components/schemas/WeatherDescription"
+        humidity:
+          $ref: "#/components/schemas/Humidity"
+        pressure:
+          $ref: "#/components/schemas/Pressure"
+        cloudiness:
+          $ref: "#/components/schemas/Cloudiness"
+        storm:
+          type: boolean
+          example: false
+          description: Вероятность грозы
+        precipitation:
+          $ref: "#/components/schemas/Precipitation"
+        phenomenon:
+          type: integer
+          nullable: true
+          example: 0
+          description: Код погодного явления
+        icon:
+          type: string
+          example: "d"
+          description: |
+            Используйте [иконки Гисметео](https://st.gismeteo.st/api/v2/icons/gismeteo-icons.zip) или создайте на их основе собственные.
+
+            Названия иконок генерируются по правилу:
+            `[day|night]_[cloudiness](1-3)_[rain][snow](0-3)_[storm]`
+
+            Параметры, используемые при генерации иконок:
+              * d - День
+              * n - Ночь
+              * c - Облачность
+                  * 1 - малооблачно
+                  * 2 - облачно
+                  * 3 - пасмурно
+              * r -	Интенсивность дождя, от 1 до 3
+              * s -	Интенсивность снега, от 1 до 3
+              * rs -	Интенсивность снега с дождем, от 1 до 3
+              * st -	Гроза
+        gm:
+          type: integer
+          example: 2
+          description: Геомагнитное поле
+        wind:
+          $ref: "#/components/schemas/Wind"
+        radiation:
+          $ref: "#/components/schemas/Radiation"
+        city:
+          type: integer
+          example: 5420
+          description: ID населенного пункта
+
+    WeatherApiResponse:
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/Meta"
+        response:
+          $ref: "#/components/schemas/WeatherResponse"
+
+    WeatherListApiResponse:
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/Meta"
+        response:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeatherResponse"
+
+    AggregateTemperature:
+      type: object
+      properties:
+        air:
+          $ref: "#/components/schemas/AggregateAirTemperature"
+        comfort:
+          $ref: "#/components/schemas/AggregateComfortTemperature"
+        water:
+          $ref: "#/components/schemas/AggregateWaterTemperature"
+
+    AggregateAirTemperature:
+      type: object
+      description: Воздух
+      properties:
+        min:
+          type: object
+          properties:
+            C:
+              type: number
+              format: float
+              nullable: true
+              example: 31.4
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              nullable: true
+              example: 88.4
+              description: В градусах Фаренгейта
+        max:
+          type: object
+          properties:
+            C:
+              type: number
+              format: float
+              nullable: true
+              example: 31.4
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              nullable: true
+              example: 88.4
+              description: В градусах Фаренгейта
+        avg:
+          type: object
+          properties:
+            C:
+              type: number
+              format: float
+              example: 26.2
+            F:
+              type: number
+              format: float
+              example: 79.1
+
+    AggregateComfortTemperature:
+      type: object
+      description: Комфорт (по ощущению)
+      properties:
+        min:
+          type: object
+          properties:
+            C:
+              type: number
+              format: float
+              nullable: true
+              example: 31.4
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              nullable: true
+              example: 88.4
+              description: В градусах Фаренгейта
+        max:
+          type: object
+          properties:
+            C:
+              type: number
+              format: float
+              nullable: true
+              example: 31.4
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              nullable: true
+              example: 88.4
+              description: В градусах Фаренгейта
+
+    AggregateWaterTemperature:
+      type: object
+      description: Вода
+      properties:
+        min:
+          type: object
+          properties:
+            C:
+              type: number
+              format: float
+              nullable: true
+              example: 31.4
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              nullable: true
+              example: 88.4
+              description: В градусах Фаренгейта
+        max:
+          type: object
+          properties:
+            C:
+              type: number
+              format: float
+              nullable: true
+              example: 31.4
+              description: В градусах Цельсия
+            F:
+              type: number
+              format: float
+              nullable: true
+              example: 88.4
+              description: В градусах Фаренгейта
+
+    HumidityRange:
+      type: object
+      properties:
+        min:
+          type: integer
+          example: 8
+          description: В процентах
+
+        max:
+          type: integer
+          example: 24
+          description: В процентах
+
+        avg:
+          type: integer
+          example: 14
+          description: В процентах
+
+
+    AggregateHumidity:
+      type: object
+      description: Влажность
+      properties:
+        percent:
+          $ref: "#/components/schemas/HumidityRange"
+
+    PressureRange:
+      type: object
+      properties:
+        min:
+          type: integer
+          example: 707
+          description: В мм ртутного столба
+        max:
+          type: integer
+          example: 707
+          description: В мм ртутного столба
+
+    InHgRange:
+      type: object
+      properties:
+        min:
+          type: number
+          format: float
+          example: 27.8
+          description: В дюймах ртутного столба
+        max:
+          type: number
+          format: float
+          example: 27.8
+          description: В дюймах ртутного столба
+
+    HPaRange:
+      type: object
+      properties:
+        min:
+          type: integer
+          example: 942
+          description: В гектопаскалях
+        max:
+          type: integer
+          example: 942
+          description: В гектопаскалях
+
+    AggregatePressure:
+      type: object
+      description: Атмосферное давление
+      properties:
+        mm_hg_atm:
+          $ref: "#/components/schemas/PressureRange"
+        in_hg:
+          $ref: "#/components/schemas/InHgRange"
+        h_pa:
+          $ref: "#/components/schemas/HPaRange"
+
+    WindDirectionRange:
+      type: object
+      description: Направление
+      properties:
+        max:
+          type: object
+          properties:
+            scale_8:
+              type: integer
+              nullable: true
+              example: 2
+              description: |
+                По шкале от 1 до 8:
+                  * 0 -	Штиль
+                  * 1 -	Северный
+                  * 2 -	Северо-восточный
+                  * 3 -	Восточный
+                  * 4 -	Юго-восточный
+                  * 5 -	Южный
+                  * 6 -	Юго-западный
+                  * 7 -	Западный
+                  * 8 -	Северо-западный
+            degree:
+              type: integer
+              nullable: true
+              example: 33
+              description: В градусах
+        min:
+          type: object
+          properties:
+            scale_8:
+              type: integer
+              nullable: true
+              example: 2
+              description: |
+                По шкале от 1 до 8:
+                  * 0 -	Штиль
+                  * 1 -	Северный
+                  * 2 -	Северо-восточный
+                  * 3 -	Восточный
+                  * 4 -	Юго-восточный
+                  * 5 -	Южный
+                  * 6 -	Юго-западный
+                  * 7 -	Западный
+                  * 8 -	Северо-западный
+            degree:
+              type: integer
+              nullable: true
+              example: 33
+              description: В градусах
+        avg:
+          type: object
+          properties:
+            scale_8:
+              type: integer
+              nullable: true
+              example: 2
+              description: |
+                По шкале от 1 до 8:
+                  * 0 -	Штиль
+                  * 1 -	Северный
+                  * 2 -	Северо-восточный
+                  * 3 -	Восточный
+                  * 4 -	Юго-восточный
+                  * 5 -	Южный
+                  * 6 -	Юго-западный
+                  * 7 -	Западный
+                  * 8 -	Северо-западный
+            degree:
+              type: integer
+              nullable: true
+              example: 33
+              description: В градусах
+
+    WindSpeedRange:
+      type: object
+      description: Скорость
+      properties:
+        max:
+          type: object
+          properties:
+            km_h:
+              type: integer
+              nullable: true
+              example: 13
+              description: километров в час
+            mi_h:
+              type: integer
+              nullable: true
+              example: 8
+              description: миль в час
+            m_s:
+              type: integer
+              nullable: true
+              example: 3
+              description: В метрах в секунду
+        min:
+          type: object
+          properties:
+            km_h:
+              type: integer
+              nullable: true
+              example: 13
+              description: километров в час
+            mi_h:
+              type: integer
+              nullable: true
+              example: 8
+              description: миль в час
+            m_s:
+              type: integer
+              nullable: true
+              example: 3
+              description: В метрах в секунду
+        avg:
+          type: object
+          properties:
+            km_h:
+              type: integer
+              nullable: true
+              example: 13
+              description: километров в час
+            mi_h:
+              type: integer
+              nullable: true
+              example: 8
+              description: миль в час
+            m_s:
+              type: integer
+              nullable: true
+              example: 3
+              description: В метрах в секунду
+
+    AggregateWind:
+      type: object
+      description: Ветер
+      properties:
+        direction:
+          $ref: "#/components/schemas/WindDirectionRange"
+        speed:
+          $ref: "#/components/schemas/WindSpeedRange"
+
+    AggregateRadiation:
+      type: object
+      description: УФ-индекс
+      properties:
+        max:
+          type: integer
+          nullable: true
+          example: 0
+          description: |
+            УФ-индекс (баллы), максимальный уровень  ультрафиолетового излучения Солнца:
+              * 0–2 - низкий
+              * 3–5 - умеренный
+              * 6–7 - высокий
+              * 8–10 - очень высокий
+              * 11+  - экстремальный
+        max_index:
+          type: integer
+          nullable: true
+          example: 0
+          description: Параметр аналогичный max
+
+    AggregateResponse:
+      type: object
+      properties:
+        kind:
+          type: string
+          nullable: true
+          example: null
+          description: Более не используется, всегда null
+        date:
+          $ref: "#/components/schemas/DateTimeInfo"
+        temperature:
+          $ref: "#/components/schemas/AggregateTemperature"
+        description:
+          $ref: "#/components/schemas/WeatherDescription"
+        humidity:
+          $ref: "#/components/schemas/AggregateHumidity"
+        pressure:
+          $ref: "#/components/schemas/AggregatePressure"
+        cloudiness:
+          $ref: "#/components/schemas/Cloudiness"
+        storm:
+          type: boolean
+          example: false
+          description: Вероятность грозы
+        precipitation:
+          $ref: "#/components/schemas/AggregatePrecipitation"
+        icon:
+          type: string
+          example: "d"
+          description: |
+            Используйте [иконки Гисметео](https://st.gismeteo.st/api/v2/icons/gismeteo-icons.zip) или создайте на их основе собственные.
+
+            Названия иконок генерируются по правилу:
+            `[day|night]_[cloudiness](1-3)_[rain][snow](0-3)_[storm]`
+
+            Параметры, используемые при генерации иконок:
+              * d - День
+              * n - Ночь
+              * c - Облачность
+                  * 1 - малооблачно
+                  * 2 - облачно
+                  * 3 - пасмурно
+              * r -	Интенсивность дождя, от 1 до 3
+              * s -	Интенсивность снега, от 1 до 3
+              * rs -	Интенсивность снега с дождем, от 1 до 3
+              * st -	Гроза
+        gm:
+          type: integer
+          example: 2
+          description: Геомагнитное поле
+        wind:
+          $ref: "#/components/schemas/AggregateWind"
+        radiation:
+          $ref: "#/components/schemas/AggregateRadiation"
+        city:
+          type: integer
+          example: 5420
+          description: ID населенного пункта
+
+    AggregateListResponse:
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/Meta"
+        response:
+          type: array
+          items:
+            $ref: "#/components/schemas/AggregateResponse"
+
+    LocationByCoordinatesItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 5420
+          description: Географический объект
+        name:
+          type: string
+          example: "Эр-Рияд"
+          description: Название географического объекта
+        nameP:
+          type: string
+          example: "в Эр-Рияде"
+          description: Название в предложном падеже
+        url:
+          type: string
+          example: "/weather-riyadh-5420/"
+          description: URL географического объекта
+        kind:
+          type: string
+          example: "M"
+          description: |
+            Тип географического объекта:
+              * T - Город
+              * C - Мегаполис
+              * A - Аэропорт
+              * M - Метеостанция
+        distance:
+          type: number
+          format: float
+          example: 258.764
+          description: Расстояние до точки поиска при поиске по координатам. В остальных случаях не возвращается
+        country:
+          $ref: "#/components/schemas/Country"
+        district:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+              nullable: true
+            nameP:
+              type: string
+              nullable: true
+        subDistrict:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+              nullable: true
+            nameP:
+              type: string
+              nullable: true
+    LocationByIPItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 5420
+          description: Географический объект
+        name:
+          type: string
+          example: "Эр-Рияд"
+          description: Название географического объекта
+        nameP:
+          type: string
+          example: "в Эр-Рияде"
+          description: Название в предложном падеже
+        url:
+          type: string
+          example: "/weather-riyadh-5420/"
+          description: URL географического объекта
+        kind:
+          type: string
+          example: "M"
+          description: |
+            Тип географического объекта:
+              * T - Город
+              * C - Мегаполис
+              * A - Аэропорт
+              * M - Метеостанция
+        country:
+          $ref: "#/components/schemas/Country"
+        district:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+              nullable: true
+            nameP:
+              type: string
+              nullable: true
+        subDistrict:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+              nullable: true
+            nameP:
+              type: string
+              nullable: true
+    LocationByNameItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 5420
+          description: Географический объект
+        name:
+          type: string
+          example: "Эр-Рияд"
+          description: Название географического объекта
+        nameP:
+          type: string
+          example: "в Эр-Рияде"
+          description: Название в предложном падеже
+        url:
+          type: string
+          example: "/weather-riyadh-5420/"
+          description: URL географического объекта
+        kind:
+          type: string
+          example: "M"
+          description: |
+            Тип географического объекта:
+              * T - Город
+              * C - Мегаполис
+              * A - Аэропорт
+              * M - Метеостанция
+        rate:
+          type: integer
+          nullable: true
+          example: 0
+          description: Более не используется
+        weight:
+          type: integer
+          nullable: true
+          example: 0
+          description: Более не используется
+        country:
+          $ref: "#/components/schemas/Country"
+        district:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+              nullable: true
+            nameP:
+              type: string
+              nullable: true
+        subDistrict:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+              nullable: true
+            nameP:
+              type: string
+              nullable: true
+
+
+
+    SearchByCoordinatesResponse:
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/Meta"
+        response:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationByCoordinatesItem"
+
+    SearchByNameResponse:
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/Meta"
+        response:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/LocationByNameItem"
+            total:
+              type: integer
+              example: 1
+
+    SearchByIPResponse:
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/Meta"
+        response:
+          $ref: "#/components/schemas/LocationByIPItem"
+
+    Country:
+      type: object
+      description: Страна
+      properties:
+        code:
+          type: string
+          nullable: true
+          example: "SA"
+          description: Код страны [ISO 3166-2](https://www.iso.org/iso-3166-country-codes.html)
+        name:
+          type: string
+          nullable: true
+          example: "Саудовская Аравия"
+          description: Название страны
+        nameP:
+          type: string
+          nullable: true
+          example: "в Саудовской Аравии"
+          description: Название в предложном падеже
+
+
+
+

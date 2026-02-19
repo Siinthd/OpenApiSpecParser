@@ -1,0 +1,1259 @@
+openapi: 3.1.0
+servers:
+  - url: //api/gismeteo.net/v3/
+    description: Default server
+info:
+  description: |
+    # О Gismeteo
+    <span style="font-size: 110%;"> **Gismeteo** - это доверенная платформа, известная своими точными прогнозами погоды и метеорологическими данными.
+    С обширной информацией, начиная от текущих погодных условий и почасовых прогнозов до долгосрочных климатических тенденций,
+    Gismeteo служит надежным ресурсом как для физических лиц, так и для бизнеса.
+
+    # Об API Gismeteo
+    <span style="font-size: 110%;"> **API Gismeteo** открывает мир возможностей в области погодных данных, позволяя разработчикам плавно интегрировать актуальную и прогнозируемую информацию о погоде в свои проекты.
+    Независимо от того, создаете ли вы приложение для путешествий, инструмент для сельского хозяйства,
+    фитнес-приложение или любое другое программное обеспечение, требующее информации о погоде, 
+    API дает вам возможность улучшить опыт пользователей, предоставляя актуальные и своевременные погодные данные, такие как:
+    
+    - <span style="font-size: 100%;">Температура воздуха, в том числе, по ощущению
+    - <span style="font-size: 100%;">Скорость и направление ветра
+    - <span style="font-size: 100%;">Атмосферное давление
+    - <span style="font-size: 100%;">Осадки: тип и количество    
+    - <span style="font-size: 100%;">Относительная влажность воздуха
+    - <span style="font-size: 100%;">Состояние облачности
+    
+    <span style="font-size: 100%;">а также   
+    
+    - <span style="font-size: 100%;">Астрономические данные
+    - <span style="font-size: 100%;">Сведения о геомагнитной активности и ультрафиолетовом излучении
+    - <span style="font-size: 100%;">Данные о пылении распространённых аллергенов
+    - <span style="font-size: 100%;">и другое
+    
+    <span style="font-size: 100%;">Более развёрнутая характеристика отдельных параметров даётся в нашей метео-wiki
+    
+    # Wiki
+    
+    ## Ветер
+    
+    **Ветер** — это движение воздуха относительно земной поверхности. Обычно подразумевается горизонтальная составляющая этого движения. 
+    Ветер ― очень изменчивый параметр атмосферы. В разные моменты времени в каждой точке пространства он разный. Поэтому его скорость и направление усредняют, 
+    а для больших колебаний скоростей —  измеряют его порывы (максимальные значения во время пульсаций). Делают на метеоплощадках, где минимизировано влияние 
+    внешних факторов, искажающих воздушный поток. При этом датчики ветра устанавливают на мачтах на высоте 10 метров. Важно отметить, что в метеорологии за направление 
+    ветра принимают угол, образованный северным направлением меридиана и направлением из точки, откуда дует ветер.
+    
+    [Подробнее в Википедии о ветре](https://ru.wikipedia.org/wiki/%D0%92%D0%B5%D1%82%D0%B5%D1%80)
+    
+    <span style="font-size: 100%;"> В API Gismeteo представлены следующие характеристики ветра:
+    <ul>
+      <li> для фактов и прогнозов с шагом 1, 3, 6 часов:
+        <ul>
+          <li>направление</li>
+          <li>скорость</li>
+          <li>скорость порывов</li>
+          <li>признак переменного характера ветра</li>
+        </ul>
+        </li>
+      <li>для 24-часовых прогнозов:</li>
+        <ul>
+          <li>минимальная скорость за сутки</li>
+          <li>максимальная скорость за сутки</li>
+          <li>средняя скорость за сутки</li>
+          <li>максимальная скорость порывов</li>
+    </ul>
+    
+    
+    
+    ## Осадки
+    
+    **Осадки** — вода в жидком или твёрдом состоянии, выпадающая из облаков или осаждающаяся из воздуха на поверхности земли и на предметах. 
+    Количество осадков за определённый срок измеряется толщиной слоя выпавшей за этот срок воды в миллиметрах. 
+    
+    [Карта осадков и гроз на сайте Gismeteo](https://www.gismeteo.ru/nowcast-home/)
+    
+    ## Индекс ультрафиолетового излучения (УФ-индекс)
+    
+    **УФ-индекс** представляет собой характеристику ультрафиолетового излучения Солнца, достигающего земной поверхности. Этот вид солнечной 
+    радиации, в зависимости от его интенсивности и длительности воздействия, может оказывать как позитивное, 
+    так и негативное воздействие на живые организмы и человека, в частности. Так, в малых дозах в малых дозах УФ-излучение 
+    просто необходимо, поскольку синтезирует необходимые для здоровья людей витамины группы D и предотвращает рахит.
+    Напротив, ультрафиолет высокой интенсивности оказывает на организм губительное действие. Восприимчивость к УФ-излучению Солнца 
+    зависит от многих факторов, например, типа и состояния кожи, поэтому границы оценки опасности солнечного воздействия 
+    Солнца бывают размытыми. Тем не менее, существует шкала, по которой можно об этом судить. Для удобства восприятия 
+    классы опасности УФИ в ней представлены в баллах. Согласно этой шкале, низкому уровню опасности соответствуют 2 и менее баллов, 
+    умеренному ― 3–5, высокому ― 6–7, очень высокому ― 8–10 и экстремальному ― 11 баллов и выше.
+    
+    ## Время восхода и захода Солнца 
+    
+    **Восход Солнца** — расчётный момент появления верхнего края солнечного диска над горизонтом. Время восхода Солнца меняется в течение всего года,
+    зависит от места наблюдателя на Земле и определяется долготой и широтой, а также высотой над уровнем моря. Небольшие суточные и заметные полугодовые 
+    изменения во времени восходов обусловлены осевым наклоном Земли, суточным вращением Земли и движением нашей планеты по её годовой эллиптической орбите
+    вокруг Солнца. Кроме того, из-за влияния атмосферы восход наблюдают несколько раньше, чем наблюдали бы при её отсутствии (сказывается атмосферная рефракция).
+    
+    <span style="font-size: 100%;">**Заход Солнца (закат)** — расчётный момент, когда верхний край солнечного диска исчезает за горизонтом. Как и в случае с восходом, на момент заката оказывают влияние 
+    факторы, перечисленные выше.
+    
+    По времени восхода и захода можно определить продолжительность (долготу) дня и время истинного полдня.
+    Оба параметра в API Gismeteo представлены с точностью до секунды.
+    
+    ## Признак полярного дня или ночи
+    
+    **Полярный день** — период, когда Солнце не заходит за горизонт дольше 1 суток. Наличие полярного дня обусловлено наклоном земной оси к плоскости эклиптики, это же 
+    определяет и территории на Земле, где полярный день возможен. Их географические широты превосходят 66°33′ — широту полярного круга. Во время полярного дня на протяжении
+    каждых суток Солнце не заходит за горизонт, а описывает окружность вдоль линии горизонта. Вблизи полярных кругов, с внешней стороны, в это время наблюдаются белые ночи. 
+    Самый долгий полярный день наблюдается на полюсах — более 6 месяцев. Интересно, что благодаря рефракции в течение примерно 4 суток вблизи равноденствий Солнце светит 
+    одновременно на обоих полюсах.
+    
+    <span style="font-size: 100%;">**Полярная ночь** так же, как и полярный день, наблюдается в пределах полярных кругов, но не обязательно означает полную темноту в течение 
+    всех 24 часов. Главная её особенность заключается в том, что Солнце не поднимается над горизонтом. При этом в большей части зоны полярной ночи в течение всего её периода 
+    ежедневно часть суток занимают сумерки.
+    
+    ## Фаза Луны
+    
+    **Фазы Луны** — периодическое изменение вида освещённой Солнцем части Луны на земном небе. Фазы Луны постепенно и циклически меняются в течение примерно 30 суток. 
+    Освещённость видимой стороны Луны варьируется от 0% при новолунии до 100% при полнолунии (параметр «Процент освещённости Луны» также присутствует в нашем API), а всего выделяют 
+    восемь фаз освещенности. Они представлены в API Gismeteo следующим образом:
+    - <span style="font-size: 100%;">new — новолуние
+    - <span style="font-size: 100%;">young — молодая Луна
+    - <span style="font-size: 100%;">first_quarter — первая четверть
+    - <span style="font-size: 100%;">waxing — прибывающая Луна
+    - <span style="font-size: 100%;">full — полнолуние
+    - <span style="font-size: 100%;">waning — убывающая Луна
+    - <span style="font-size: 100%;">last_quarter — последняя четверть
+    - <span style="font-size: 100%;">old — старая Луна
+    
+    **Дата и время предыдущего и следующего полнолуния**
+    
+    В API Gismeteo представлены два ближайших (предыдущий и следующий) момента времени, соответствующих астрономическому пониманию полнолуния, т. е. такого взаимного расположения Солнца, Земли и Луны, 
+    при котором плоскость, проведённая через их центры, оказывается перпендикулярной плоскости земной орбиты, а Луна находится дальше от Солнца, чем Земля. Вследствие непрерывного движения небесных тел 
+    эта пространственная конфигурация очень кратковременна, отсюда и точность, с которой указывается момент полнолуния — до секунды. В этом отличие астрономической трактовки полнолуния от бытового, обозначающего
+    обычно период нескольких суток, в течение которых Луна визуально почти не отличается от полной. Заметим, что аналогичная конфигурация небесных тел, но с Луной, расположенной к Солнцу ближе Земли, соответствует новолунию.
+    
+    ## Видимость
+    
+    **Видимость** (или дальность видимости) — это параметр атмосферы, характеризующий степень её прозрачности. Определяется расстоянием, на котором днем наблюдаемый объект становится неотличим от фона (теряются его очертания), 
+    а ночью становится неразличимым источник света определенной интенсивности. Чаще подразумевается видимость в горизонтальном направлении, хотя на практике (например, для обеспечения полетов авиации) измеряется наклонная и даже
+    вертикальная видимость. Дальность видимости изменяется в широких пределах и зависит от многих факторов – географического типа воздушной массы, запыленности, задымленности воздуха, содержания в нем водяного пара, освещенности, 
+    погодных явлений. Так, в сухом и чистом арктическом воздухе дальность видимости может составлять десятки и даже сотни километров, а в сильном тумане — уменьшаться до десятков метров.
+    
+    <span style="font-size: 100%;"> API Gismeteo предоставляет прогноз горизонтальной видимости.
+    
+    ## Температура воздуха 
+    
+    **Температура воздуха** — один из самых значимых и понятных погодных параметров, являющийся неотъемлемой частью любого прогноза, несмотря на то, что понятие  температуры в физике не относится к числу самых простых. 
+    На метеостанциях температуру воздуха измеряют на высоте двух метров над поверхностью земли с помощью термометров, защищённых от действия прямой солнечной радиации. Прогнозируемые значения температуры воздуха 
+    даются для этой же высоты.
+    
+    <span style="font-size: 100%;"> В последние годы стало привычным включение в прогноз температурного показателя «ощущений», который рассчитывается метеорологической моделью с учетом ряда факторов, влияющих на восприятие погодных условий человеком, 
+    таких как влажность воздуха, скорость ветра и т. д. Смысл «температуры по ощущениям» сводится у тому, чтобы дать представление о том, какую температуру будет чувствовать по сезону одетый человек в локации, для которой
+    предоставляется прогноз, с учетом ветра и влажности. Однако каждый человек в реальности будет ощущать температуру по своему.
+    
+    <span style="font-size: 100%;"> В API Gismeteo представлены оба вида температур воздуха для всех сроков, по которым даётся прогноз. Кроме того, для прогноза с шагом 24 часа предоставляются:
+    - <span style="font-size: 100%;"> минимальная температура воздуха за сутки
+    - <span style="font-size: 100%;"> максимальная температура воздуха за сутки
+    - <span style="font-size: 100%;"> среднесуточная температура воздуха
+    - <span style="font-size: 100%;"> минимальная ощущаемая температура воздуха за сутки
+    - <span style="font-size: 100%;"> максимальная ощущаемая температура воздуха за сутки
+  
+  
+    ## Влажность воздуха
+    
+    Атмосферный воздух представляет собой смесь различных газов. Кроме преобладающего по массе и объёму азота, необходимого для дыхания кислорода, служащего темой для многих острых дискуссий углекислого газа и других газов, в земной 
+    атмосфере в той или иной мере присутствует также водяной пар. Характеристикой его присутствия в воздухе является влажность воздуха. Выделяют абсолютную и относительную влажность. Первая определяется как масса водяного пара в 1 кубическом метре воздуха
+    (т. е. фактически это плотность водяного пара) и менее показательна, чем вторая, физический смысл которой можно определить как характеристику близости водяного пара к насыщению, практически напрямую связанную с вероятностью выпадения осадков. 
+    Именно поэтому по традиции прогноз погоды содержит информацию об относительной влажности воздуха. Выражают её в процентах.
+    
+    <span style="font-size: 100%;"> API Gismeteo предоставляет прогноз относительной влажности воздуха по всем его срокам, а также минимальное, максимальное и среднее за сутки значения этого параметра.
+  
+  
+    # Основные функции
+    - <span style="font-size: 110%;">**Текущая погода:** Получайте актуальные и достоверные данные о погодных условия в заданном местоположении, включающие температуру воздуха, влажность, скорость ветра и многое другое
+    - <span style="font-size: 110%;">**Почасовой прогноз:** Получайте почасовые прогнозы, чтобы помочь пользователям спланировать свой день в соответствии с точными прогнозами погоды на ближайшие часы.
+    - <span style="font-size: 110%;">**Прогноз с шагом 6 часов:** Получайте детальные прогнозы погоды с интервалом в 6 часов, чтобы предоставить пользователям возможность сократить неопределённость при принятии решений в краткосрочной перспективе.
+
+    # Аутентификация
+    Для аутентификации в API Gismeteo используйте токен доступа.
+    В каждом запросе к API добавьте заголовок `X-Gismeteo-Token` со значением `<API_TOKEN>`.
+    
+    Пример заголовка запроса:
+    ```
+    GET /v3/weather/current HTTP/1.1
+    Host: api.gismeteo.net
+    X-Gismeteo-Token: <API_TOKEN>
+    ```
+
+    <SecurityDefinitions />
+
+  version: 3.5.1
+  title: Weather API Documentation
+  contact:
+    name: API Support
+    email: info@gismeteo.ru
+    url: https://www.gismeteo.ru
+  x-logo:
+    url: 'https://static.gismeteo.st/yaml/logo.png'
+    altText: Gismeteo
+
+tags:
+  - name: weather
+    x-displayName: The Weather Endpoints
+    description: Список доступных методов погодного API
+  - name: precipitation_model
+    x-displayName: Precipitation Model
+    description: |
+      Данные об осадках
+      <SchemaDefinition schemaRef="#/components/schemas/Precipitation" />
+  - name: city_model
+    x-displayName: City Model
+    description: |
+      Общая информация о населённом пункте, по которому предоставляется погодная информация 
+      <SchemaDefinition schemaRef="#/components/schemas/City" />
+  - name: icon_model
+    x-displayName: Icon Model
+    description: |
+      Погодная иконка Гисметео
+      <SchemaDefinition schemaRef="#/components/schemas/Icon" />
+  - name: humidity_model
+    x-displayName: Humidity Model
+    description: |
+      Относительная влажность воздуха
+      <SchemaDefinition schemaRef="#/components/schemas/Humidity" />
+  - name: date_model
+    x-displayName: Date Model
+    description: |
+      Данные о времени наблюдения или сроке прогноза 
+      <SchemaDefinition schemaRef="#/components/schemas/Date" />
+  - name: pressure_model
+    x-displayName: Pressure Model
+    description: |
+      Атмосферное давление
+      <SchemaDefinition schemaRef="#/components/schemas/Pressure" />
+  - name: cloudiness_model
+    x-displayName: Cloudiness Model
+    description: |
+      Облачность
+      <SchemaDefinition schemaRef="#/components/schemas/Cloudiness" />
+  - name: storm_model
+    x-displayName: Storm Model
+    description: |
+      Информация о грозе
+      <SchemaDefinition schemaRef="#/components/schemas/Storm" />
+  - name: wind_model
+    x-displayName: Wind Model
+    description: |
+      Информация о ветре
+      <SchemaDefinition schemaRef="#/components/schemas/Wind" />
+  - name: temperature_model
+    x-displayName: Temperature Model
+    description: |
+      Информация о температуре
+      <SchemaDefinition schemaRef="#/components/schemas/Temperature" />
+  - name: astronomy_model
+    x-displayName: Astro Model
+    description: |
+      Информация о Солнце и Луне
+      <SchemaDefinition schemaRef="#/components/schemas/Astronomy" />
+  - name: kind_model
+    x-displayName: Kind Model
+    description: |
+      Характеристика типа погодных данных
+      <SchemaDefinition schemaRef="#/components/schemas/Kind" />
+  - name: visibility_model
+    x-displayName: Visibility Model
+    description: |
+      Информация о видимости
+      <SchemaDefinition schemaRef="#/components/schemas/Visibility" />
+  - name: description_model
+    x-displayName: Description Model
+    description: |
+      Погодные явления
+      <SchemaDefinition schemaRef="#/components/schemas/Description" />
+  - name: humidity_model_aggregate
+    x-displayName: Humidity Aggregate Model
+    description: |
+      Агрегированная относительная влажность воздуха
+      <SchemaDefinition schemaRef="#/components/schemas/HumidityAggregate" />
+  - name: wind_model_aggregate
+    x-displayName: Wind Aggregate Model
+    description: |
+      Агрегированная информация о ветре
+      <SchemaDefinition schemaRef="#/components/schemas/WindAggregate" />
+  - name: temperature_model_aggregate
+    x-displayName: Temperature Aggregate Model
+    description: |
+      Агрегированная информация о температуре
+      <SchemaDefinition schemaRef="#/components/schemas/TemperatureAggregate" />
+  - name: pressure_model_aggregate
+    x-displayName: Pressure Aggregate Model
+    description: |
+      Агрегированное атмосферное давление
+      <SchemaDefinition schemaRef="#/components/schemas/PressureAggregate" />
+
+x-tagGroups:
+  - name: General
+    tags:
+      - weather
+  - name: Models
+    tags:
+      - kind_model
+      - precipitation_model
+      - city_model
+      - icon_model
+      - humidity_model
+      - date_model
+      - pressure_model
+      - cloudiness_model
+      - storm_model
+      - wind_model
+      - temperature_model
+      - astronomy_model
+      - visibility_model
+      - description_model
+      - humidity_model_aggregate
+      - wind_model_aggregate
+      - temperature_model_aggregate
+      - pressure_model_aggregate
+
+paths:
+  /weather/current:
+    get:
+      tags: [ "weather" ]
+      summary: "Current Weather"
+      description: "Возвращает текущую погоду по координатам"
+      parameters:
+        - $ref: '#/components/parameters/latitude'
+        - $ref: '#/components/parameters/longitude'
+      x-codeSamples:
+        - lang: Curl
+          source: |
+            curl -H "X-Gismeteo-Token: <API_TOKEN>"  "https://api.gismeteo.net/v3/weather/current/?latitude=54.35&longitude=52.52"
+      responses:
+        '200':
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: [ "object" ]
+                properties:
+                  meta:
+                    type: "object"
+                    $ref: '#/components/schemas/Meta'
+                  jsonapi:
+                    type: "object"
+                    $ref: '#/components/schemas/JsonAPI'
+                  data:
+                    type: "object"
+                    $ref: '#/components/schemas/Components'
+        '400':
+          description: "Params `latitude` && `longitude` are required"
+          $ref: '#/components/responses/ErrBadRequest'
+        '401':
+          description: "Invalid `X-Gismeteo-Token`"
+          $ref: '#/components/responses/ErrUnauthorized'
+        '404':
+          description: "Geography object wasn't found"
+          $ref: '#/components/responses/ErrNotFound'
+      security:
+        - ApiKeyAuth: [ ]
+
+  /weather/forecast/h1:
+    get:
+      tags: [ "weather" ]
+      summary: "Weather by 1h"
+      description: "Возвращает прогноз погоды с шагом 1 час"
+      parameters:
+        - $ref: '#/components/parameters/latitude'
+        - $ref: '#/components/parameters/longitude'
+      x-codeSamples:
+        - lang: Curl
+          source: |
+            curl -H "X-Gismeteo-Token: <API_TOKEN>"  "https://api.gismeteo.net/v3/weather/forecast/h1/?latitude=54.35&longitude=52.52"
+      responses:
+        '200':
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: [ "object" ]
+                properties:
+                  meta:
+                    type: [ "object" ]
+                    $ref: '#/components/schemas/Meta'
+                  jsonapi:
+                    type: [ "object" ]
+                    $ref: '#/components/schemas/JsonAPI'
+                  data:
+                    type: [ "array" ]
+                    items:
+                      $ref: '#/components/schemas/Components'
+        '400':
+          description: "Params `latitude` && `longitude` are required"
+          $ref: '#/components/responses/ErrBadRequest'
+        '401':
+          description: "Invalid `X-Gismeteo-Token`"
+          $ref: '#/components/responses/ErrUnauthorized'
+        '404':
+          description: "Geography object wasn't found"
+          $ref: '#/components/responses/ErrNotFound'
+      security:
+        - ApiKeyAuth: [ ]
+
+  /weather/forecast/h3:
+    get:
+      tags: [ "weather" ]
+      summary: "Weather by 3h"
+      description: "Возвращает прогноз погоды с шагом 3 часа"
+      parameters:
+        - $ref: '#/components/parameters/latitude'
+        - $ref: '#/components/parameters/longitude'
+      x-codeSamples:
+        - lang: Curl
+          source: |
+            curl -H "X-Gismeteo-Token: <API_TOKEN>"  "https://api.gismeteo.net/v3/weather/forecast/h3/?latitude=54.35&longitude=52.52"
+      responses:
+        '200':
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: [ "object" ]
+                properties:
+                  meta:
+                    type: [ "object" ]
+                    $ref: '#/components/schemas/Meta'
+                  jsonapi:
+                    type: [ "object" ]
+                    $ref: '#/components/schemas/JsonAPI'
+                  data:
+                    type: [ "array" ]
+                    items:
+                      $ref: '#/components/schemas/Aggregates'
+        '400':
+          description: "Params `latitude` && `longitude` are required"
+          $ref: '#/components/responses/ErrBadRequest'
+        '401':
+          description: "Invalid `X-Gismeteo-Token`"
+          $ref: '#/components/responses/ErrUnauthorized'
+        '404':
+          description: "Geography object wasn't found"
+          $ref: '#/components/responses/ErrNotFound'
+      security:
+        - ApiKeyAuth: [ ]
+
+  /weather/forecast/h6:
+    get:
+      tags: [ "weather" ]
+      summary: "Weather by 6h"
+      description: "Возвращает агрегированный прогноз погоды с шагом 6 часов"
+      parameters:
+        - $ref: '#/components/parameters/latitude'
+        - $ref: '#/components/parameters/longitude'
+      x-codeSamples:
+        - lang: Curl
+          source: |
+            curl -H "X-Gismeteo-Token: <API_TOKEN>"  "https://api.gismeteo.net/v3/weather/forecast/h6/?latitude=54.35&longitude=52.52"
+      responses:
+        '200':
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: [ "object" ]
+                properties:
+                  meta:
+                    type: [ "object" ]
+                    $ref: '#/components/schemas/Meta'
+                  jsonapi:
+                    type: [ "object" ]
+                    $ref: '#/components/schemas/JsonAPI'
+                  data:
+                    type: [ "array" ]
+                    items:
+                      $ref: '#/components/schemas/Components'
+        '400':
+          description: "Params `latitude` && `longitude` are required"
+          $ref: '#/components/responses/ErrBadRequest'
+        '401':
+          description: "Invalid `X-Gismeteo-Token`"
+          $ref: '#/components/responses/ErrUnauthorized'
+        '404':
+          description: "Geography object wasn't found"
+          $ref: '#/components/responses/ErrNotFound'
+      security:
+        - ApiKeyAuth: [ ]
+
+  /weather/forecast/h24:
+      get:
+        tags: [ "weather" ]
+        summary: "Weather by 24h"
+        description: "Возвращает агрегированный прогноз погоды с шагом 24 часа"
+        parameters:
+          - $ref: '#/components/parameters/latitude'
+          - $ref: '#/components/parameters/longitude'
+        x-codeSamples:
+          - lang: Curl
+            source: |
+              curl -H "X-Gismeteo-Token: <API_TOKEN>"  "https://api.gismeteo.net/v3/weather/forecast/h24/?latitude=54.35&longitude=52.52"
+        responses:
+          '200':
+            description: "OK"
+            content:
+              application/json:
+                schema:
+                  type: [ "object" ]
+                  properties:
+                    meta:
+                      type: [ "object" ]
+                      $ref: '#/components/schemas/Meta'
+                    jsonapi:
+                      type: [ "object" ]
+                      $ref: '#/components/schemas/JsonAPI'
+                    data:
+                      type: [ "array" ]
+                      items:
+                        $ref: '#/components/schemas/Aggregates'
+          '400':
+            description: "Params `latitude` && `longitude` are required"
+            $ref: '#/components/responses/ErrBadRequest'
+          '401':
+            description: "Invalid `X-Gismeteo-Token`"
+            $ref: '#/components/responses/ErrUnauthorized'
+          '404':
+            description: "Geography object wasn't found"
+            $ref: '#/components/responses/ErrNotFound'
+        security:
+          - ApiKeyAuth: [ ]
+
+components:
+  responses:
+    WeatherResponse:
+      description: "OK"
+      content:
+        application/json:
+          schema:
+            type: [ "object" ]
+            properties:
+              meta:
+                type: [ "object" ]
+                $ref: '#/components/schemas/Meta'
+              jsonapi:
+                type: [ "object" ]
+                $ref: '#/components/schemas/JsonAPI'
+              data:
+                type: [ "array" ]
+                items:
+                  $ref: '#/components/schemas/Components'
+    ErrBadRequest:
+      content:
+        application/json:
+          schema:
+            type: [ "object" ]
+            properties:
+              meta:
+                type: [ "object" ]
+                $ref: '#/components/schemas/Meta'
+              jsonapi:
+                type: [ "object" ]
+                $ref: '#/components/schemas/JsonAPI'
+              errors:
+                type: [ "array" ]
+                items:
+                  properties:
+                    title:
+                      description: ""
+                      type: [ "string" ]
+                      example: "Bad Request"
+                    detail:
+                      description: ""
+                      type: [ "string" ]
+                      example: "Params `latitude && longitude` are required"
+    ErrUnauthorized:
+      content:
+        application/json:
+          schema:
+            type: [ "object" ]
+            properties:
+              meta:
+                type: [ "object" ]
+                $ref: '#/components/schemas/Meta'
+              jsonapi:
+                type: [ "object" ]
+                $ref: '#/components/schemas/JsonAPI'
+              errors:
+                type: [ "array" ]
+                items:
+                  properties:
+                    title:
+                      description: ""
+                      type: [ "string" ]
+                      example: "Unauthorized"
+                    detail:
+                      description: ""
+                      type: [ "string" ]
+                      example: "Token `X-Gismeteo-Token` is empty"
+    ErrNotFound:
+      content:
+        application/json:
+          schema:
+            type: [ "object" ]
+            properties:
+              meta:
+                type: [ "object" ]
+                $ref: '#/components/schemas/Meta'
+              jsonapi:
+                type: [ "object" ]
+                $ref: '#/components/schemas/JsonAPI'
+              errors:
+                type: [ "array" ]
+                items:
+                  properties:
+                    title:
+                      description: ""
+                      type: [ "string" ]
+                      example: "Not Found"
+                    detail:
+                      description: ""
+                      type: [ "string" ]
+                      example: "Geography object wasn't found"
+
+  schemas:
+    Date:
+      type: [ "object" ]
+      description: "Время наблюдения или срок прогноза"
+      properties:
+        UTC:
+          description: "В формате UTC"
+          type: [ "string" ]
+          format: date-time
+          example: "2023-08-22T10:00:00Z"
+        local:
+          description: "По местному времени"
+          type: [ "string" ]
+          format: "date-time"
+          example: "2023-08-22T13:00:00Z"
+        unix:
+          type: [ "integer" ]
+          description: "В представлении Unix"
+          example: 1692698400
+        timeZoneOffset:
+          type: [ "integer" ]
+          description: "Сдвиг часового пояса от UTC в минутах"
+          example: 180
+    Humidity:
+      type: [ "object" ]
+      description: 'Относительная влажность воздуха'
+      properties:
+        percent:
+          description: 'Относительная влажность воздуха в процентах'
+          type: [ "integer" ]
+          format: "int32"
+          example: 55
+        dew_point:
+          type: [ "object" ]
+          description: 'Точка росы'
+          properties:
+            C:
+              description: 'В градусах Цельсия'
+              type: [ "number" ]
+              format: float64
+              example: 10.8
+    HumidityAggregate:
+      type: [ "object" ]
+      description: 'Относительная влажность воздуха'
+      properties:
+        percent:
+          properties:
+            max:
+              description: 'Максимальная относительная влажность воздуха в процентах за сутки'
+              type: [ "integer" ]
+              format: "int32"
+              example: 91
+            min:
+              description: 'Минимальная относительная влажность воздуха в процентах за сутки'
+              type: [ "integer" ]
+              format: "int32"
+              example: 81
+            avg:
+              description: 'Средняя относительная влажность воздуха в процентах за сутки'
+              type: [ "number" ]
+              format: "float64"
+              example: 86.4
+
+    Visibility:
+      type: [ "object" ]
+      description: 'Информация о видимости'
+      properties:
+        horizontal:
+          type: [ "object" ]
+          description: "Горизонтальная видимость"
+          properties:
+            m:
+              description: "В метрах"
+              type: [ "number" ]
+              nullable: true
+              example: 690
+    Icon:
+      type: [ "object" ]
+      description: "Погодная иконка Гисметео"
+      properties:
+        emoji:
+          type: [ "string" ]
+          example: "☔️️"
+          description: "Значок погоды в формате `emoji`"
+        icon-weather:
+          type: [ string ]
+          example: "d_c3_r1"
+          description: |
+            Названия иконок генерируются по правилу:
+            `[day|night]_[cloudiness](1-3)_[rain][snow](0-3)_[storm]`
+            
+            Параметры, используемые при генерации иконок
+              * d - День
+              * n - Ночь
+              * c - Облачность
+                * 1 - малооблачно
+                * 2 - облачно
+                * 3 - пасмурно
+              * r - Интенсивность дождя, от 1 до 3
+              * s - Интенсивность снега, от 1 до 3
+              * rs - Интенсивность снега с дождем, от 1 до 3
+              * st - Добавляется в конец иконки, если есть гроза
+
+            Например,
+              * `d_c2_rs1_st` значит день, облачно, идет слабый снег с дождем и есть гроза
+              * `n_c1_r2` значит ночь, малооблачно и идет средний по силе дождь
+              * `d` значит ясный день без осадков
+    Kind:
+      type: [ "string" ]
+      enum: [ "Obs", "Frc" ]
+      example: "Obs"
+      description: |
+        Тип погодных данных: прогноз или фактическое наблюдение: 
+          * Obs - Наблюдение
+          * Frc - Прогноз (предоставляется, если отсутствуют данные наблюдений)
+    Description:
+      type: [ "string" ]
+      description: "Описание погодных явлений"
+      example: "Пасмурно, без осадков"
+    City:
+      type: [ object ]
+      properties:
+        name:
+          description: "Наименование населённого пункта в именительном падеже"
+          type: [ "string" ]
+          example: "Москва"
+        nameP:
+          description: "Наименование населённого пункта в предложном падеже"
+          type: [ "string" ]
+          example: "в Москве"
+        latitude:
+          description: "Географическая широта центра населённого пункта"
+          type: [ "number" ]
+          format: "float64"
+          example: 55.755798
+        longitude:
+          description: "Географическая долгота центра населённого пункта"
+          type: [ "number" ]
+          format: "float64"
+          example: 37.617599
+    Storm:
+      type: [ "object" ]
+      properties:
+        prediction:
+          description: "Триггер наличия грозы"
+          type: [ "boolean" ]
+          example: false
+        cape:
+          description: "Интерпретируемый параметр - характеристика термодинамической неустойчивости атмосферы"
+          type: [ "number" ]
+          nullable: true
+          example: 23.49
+    Cloudiness:
+      type: [ "object" ]
+      properties:
+        percent:
+          description: "Средняя облачность в процентах"
+          type: [ "integer" ]
+          format: int32
+          example: 93
+        scale_3:
+          type: [ "integer" ]
+          format: int32
+          example: 3
+          enum: [ 0, 1, 2, 3 ]
+          description: |
+            Тип облачности:
+              * 0 - Ясно
+              * 1 - Малооблачно
+              * 2 - Облачно
+              * 3 - Пасмурно
+    Astronomy:
+      type: [ "object" ]
+      description: "Информация о Солнце и Луне"
+      properties:
+        sun:
+          description: "Информация о Солнце"
+          type: [ "object" ]
+          properties:
+            polar:
+              description: |
+                Идет ли в этот период полярная ночь или день
+                * day - полярный день
+                * night - полярная ночь
+              type: [ "string" ]
+              nullable: true
+              enum: [ "day", "night" ]
+              example: null
+            sunrise:
+              description: "Дата сегодняшнего восхода. Если в этот период полярный день, указывается дата предыдущего восхода, полярная ночь - следующего"
+              type: [ "string" ]
+              format: "date-time"
+              example: "2023-08-22T05:14:02+03:00"
+            sunset:
+              description: "Дата сегодняшнего заката. Если в этот период полярный день, указывается дата следующего заката, полярная ночь - предыдущего"
+              type: [ "string" ]
+              format: 'date-time'
+              example: "2023-08-22T19:49:40+03:00"
+        moon:
+          description: "Информация о Луне"
+          type: [ "object" ]
+          properties:
+            phase:
+              type: [ "string" ]
+              description: |
+                Фаза Луны в этот период
+                * new - новолуние
+                * young - молодая луна
+                * first_quarter - первая четверть
+                * waxing - прибывающая луна
+                * full - полнолуние
+                * waning - убывающая луна
+                * last_quarter - последняя четверть
+                * old - старая луна
+              enum:
+                - "new"
+                - "young"
+                - "first_quarter"
+                - "waxing"
+                - "full"
+                - "waning"
+                - "last_quarter"
+                - "old"
+              example: "first_quarter"
+            percent_illuminated:
+              type: [ "number" ]
+              format: "float64"
+              description: "Степень освещенности поверхности Луны в процентах"
+              example: 29.7
+            next_full:
+              type: [ "string" ]
+              format: "date-time"
+              description: "Дата следующего полнолуния"
+              example: "2023-08-31T04:36:40+03:00"
+            previous_full:
+              type: [ "string" ]
+              format: "date-time"
+              description: "Дата предыдущего полнолуния"
+              example: "2023-08-01T21:32:41+03:00"
+    Wind:
+      type: [ "object" ]
+      description: "Информация о ветре"
+      properties:
+        direction:
+          type: [ "object" ]
+          description: "Направление ветра"
+          properties:
+            degree:
+              description: "В градусах от севера по часовой стрелке"
+              type: [ "number" ]
+              format: "float64"
+              nullable: true
+              example: 250
+            scale_8:
+              type: [ "number" ]
+              format: "int32"
+              enum: [ 0, 1, 2, 3, 4, 5, 6, 7, 8 ]
+              nullable: true
+              example: 7
+              description: |
+                Откуда дует ветер:
+                  * 0 - Штиль
+                  * 1 - Северный
+                  * 2 - Северо-восточный
+                  * 3 - Восточный
+                  * 4 - Юго-восточный
+                  * 5 - Южный
+                  * 6 - Юго-западный
+                  * 7 - Западный
+                  * 8 - Северо-западный
+        speed:
+          type: [ "object" ]
+          description: "Скорость ветра"
+          properties:
+            m_s:
+              description: "В м/с"
+              type: [ "number" ]
+              format: "float64"
+              example: 1
+              nullable: true
+        gust_speed:
+          type: [ "object" ]
+          description: "Скорость порывов ветра"
+          properties:
+            m_s:
+              description: "В м/с"
+              type: [ "number" ]
+              format: "float64"
+              example: null
+              nullable: true
+        alternate_direction:
+          type: [ "boolean" ]
+          description: "Триггер переменного характера направления ветра"
+          example: false
+    WindAggregate:
+      type: [ "object" ]
+      description: "Агрегированная информация о ветре"
+      properties:
+        direction:
+          type: [ "object" ]
+          description: "Направление ветра"
+          properties:
+            degree:
+              description: "В градусах от севера по часовой стрелке"
+              type: [ "number" ]
+              format: "float64"
+              nullable: true
+              example: 250
+            scale_8:
+              type: [ "number" ]
+              format: "int32"
+              nullable: true
+              enum: [ 0, 1, 2, 3, 4, 5, 6, 7, 8 ]
+              example: 7
+              description: |
+                Откуда дует ветер:
+                  * 0 - Штиль
+                  * 1 - Северный
+                  * 2 - Северо-восточный
+                  * 3 - Восточный
+                  * 4 - Юго-восточный
+                  * 5 - Южный
+                  * 6 - Юго-западный
+                  * 7 - Западный
+                  * 8 - Северо-западный
+        speed:
+          type: [ "object" ]
+          description: "Скорость ветра"
+          properties:
+            m_s:
+              description: "В м/с"
+              type: [ "number" ]
+              format: "float64"
+              example: 1
+              nullable: true
+        gust_speed:
+          type: [ "object" ]
+          description: "Скорость порывов ветра"
+          properties:
+            m_s:
+              description: "В м/с"
+              type: [ "number" ]
+              format: "float64"
+              example: null
+              nullable: true
+    Temperature:
+      type: [ "object" ]
+      properties:
+        air:
+          type: [ "object" ]
+          description: "Температура воздуха"
+          properties:
+            C:
+              description: "В градусах Цельсия"
+              type: [ "number" ]
+              format: "float64"
+              example: 20
+        comfort:
+          type: [ "object" ]
+          description: "Температура по ощущениям"
+          properties:
+            C:
+              description: "В градусах Цельсия"
+              type: [ "number" ]
+              format: "float64"
+              example: 20
+        water:
+          type: [ "object" ]
+          description: "Температура воды"
+          properties:
+            C:
+              description: "В градусах Цельсия"
+              type: [ "number" ]
+              format: "float64"
+              nullable: true
+              example: 20.3
+    TemperatureAggregate:
+      type: [ "object" ]
+      properties:
+        air:
+          type: [ "object" ]
+          description: "Температура воздуха"
+          properties:
+              max:
+                type: [ "object" ]
+                properties:
+                  C:
+                    description: "В градусах Цельсия"
+                    type: [ "number" ]
+                    format: "float64"
+                    example: -5.3
+              min:
+                type: [ "object" ]
+                properties:
+                  C:
+                    description: "В градусах Цельсия"
+                    type: [ "number" ]
+                    format: "float64"
+                    example: -9.3
+              avg:
+                type: [ "object" ]
+                properties:
+                  C:
+                    description: "В градусах Цельсия"
+                    type: [ "number" ]
+                    format: "float64"
+                    example: -7.8
+        comfort:
+          type: [ "object" ]
+          description: "Температура по ощущениям"
+          properties:
+            max:
+              type: [ "object" ]
+              properties:
+                C:
+                  description: "В градусах Цельсия"
+                  type: [ "number" ]
+                  format: "float64"
+                  example: -5.3
+            min:
+              type: [ "object" ]
+              properties:
+                C:
+                  description: "В градусах Цельсия"
+                  type: [ "number" ]
+                  format: "float64"
+                  example: -13.3
+        water:
+          type: [ "object" ]
+          description: "Температура воды"
+          properties:
+            max:
+              type: [ "object" ]
+              properties:
+                C:
+                  description: "В градусах Цельсия"
+                  type: [ "number" ]
+                  format: "float64"
+                  example: 3
+            min:
+              type: [ "object" ]
+              properties:
+                C:
+                  description: "В градусах Цельсия"
+                  type: [ "number" ]
+                  format: "float64"
+                  example: 0
+    Pressure:
+      type: [ "object" ]
+      description: "Атмосферное давление"
+      properties:
+        mm_hg_atm:
+          description: "Атмосферное давление в мм рт. ст."
+          type: [ "number" ]
+          format: "float64"
+          example: 745
+    PressureAggregate:
+      type: [ "object" ]
+      description: "Атмосферное давление"
+      properties:
+        mm_hg_atm:
+          properties:
+            min:
+              description: "Минимальное атмосферное давление в мм рт. ст. за сутки"
+              type: [ "integer" ]
+              format: "int32"
+              example: 744
+            max:
+              description: "Максимальное атмосферное давление в мм рт. ст. за сутки"
+              type: [ "integer" ]
+              format: "int32"
+              example: 749
+    Precipitation:
+      type: [ "object" ]
+      properties:
+        amount:
+          description: "Количество осадков в мм"
+          type: [ "number" ]
+          format: "float64"
+          example: 0.1
+        intensity:
+          type: [ "integer" ]
+          format: "int32"
+          example: 1
+          description: |
+            Интенсивность осадков
+              * 0 - Нет осадков
+              * 1 - Небольшой дождь/снег
+              * 2 - Дождь / снег
+              * 3 - Сильный дождь / сильный снег
+        type:
+          type: [ "integer" ]
+          format: "int32"
+          description: |
+            Тип осадков
+              * 0 - Нет осадков
+              * 1 - Дождь
+              * 2 - Снег
+              * 3 - Смешанные осадки
+        type_ext:
+          type: [ "integer" ]
+          format: "int32"
+          example: 1
+          description: "Более не используется, сохранено для обеспечения совместимости с предыдущими версиями"
+        duration:
+          type: [ "integer" ]
+          format: "int32"
+          example: 1
+          description: "Более не используется, сохранено для обеспечения совместимости с предыдущими версиями"
+
+
+    Meta:
+      type: [ "object" ]
+      description: "Информация о статусе запроса"
+      properties:
+        status_code:
+          description: "HTTP-код ответа"
+          type: [ "integer" ]
+          example: 200
+        status:
+          description: "Статус успешности запроса"
+          type: [ "boolean" ]
+    JsonAPI:
+      type: [ "object" ]
+      description: "Информация об API Gismeteo"
+      properties:
+        version:
+          type: [ "string" ]
+          description: "Версия API"
+          example: "3.5.1"
+    Components:
+      description: "Погодные компоненты"
+      type: [ "object" ]
+      properties:
+        kind:
+          type: [ "string" ]
+          $ref: '#/components/schemas/Kind'
+        city:
+          type: [ "object" ]
+          $ref: '#/components/schemas/City'
+        date:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Date'
+        description:
+          type: [ "string" ]
+          $ref: '#/components/schemas/Description'
+        icon:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Icon'
+        humidity:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Humidity'
+        precipitation:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Precipitation'
+        pressure:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Pressure'
+        temperature:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Temperature'
+        wind:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Wind'
+        astronomy:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Astronomy'
+        storm:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Storm'
+        cloudiness:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Cloudiness'
+    Aggregates:
+      description: "Агрегированные погодные компоненты"
+      type: [ "object" ]
+      properties:
+        kind:
+          type: [ "string" ]
+          $ref: '#/components/schemas/Kind'
+        city:
+          type: [ "object" ]
+          $ref: '#/components/schemas/City'
+        date:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Date'
+        description:
+          type: [ "string" ]
+          $ref: '#/components/schemas/Description'
+        icon:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Icon'
+        humidity:
+          type: [ "object" ]
+          $ref: '#/components/schemas/HumidityAggregate'
+        precipitation:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Precipitation'
+        pressure:
+          type: [ "object" ]
+          $ref: '#/components/schemas/PressureAggregate'
+        temperature:
+          type: [ "object" ]
+          $ref: '#/components/schemas/TemperatureAggregate'
+        wind:
+          type: [ "object" ]
+          $ref: '#/components/schemas/WindAggregate'
+        astro:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Astronomy'
+        storm:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Storm'
+        cloudiness:
+          type: [ "object" ]
+          $ref: '#/components/schemas/Cloudiness'
+  parameters:
+    latitude:
+      name: "latitude"
+      description: "Географическая широта центра населённого пункта"
+      in: query
+      required: true
+      schema:
+        type: [ "number" ]
+        format: "float64"
+        minimum: -90.0
+        maximum: 90.0
+    longitude:
+      name: "longitude"
+      description: "Географическая долгота центра населённого пункта"
+      in: query
+      required: true
+      schema:
+        type: [ "number" ]
+        format: "float64"
+        minimum: -180.0
+        maximum: 180.0
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      name: X-Gismeteo-Token
+      in: header

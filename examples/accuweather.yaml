@@ -1,0 +1,240 @@
+openapi: 3.1.0
+info:
+  title: AccuWeather Core Weather API - Current Conditions
+  description: Retrieve current weather conditions for a specific location using its location key.
+  version: 1.0.0
+servers:
+  - url: https://dataservice.accuweather.com
+    description: AccuWeather API production server
+paths:
+  /currentconditions/v1/{locationKey}:
+    get:
+      summary: Get current conditions by location key
+      description: Retrieves the current weather conditions for a specific location, using a locationKey obtained from another endpoint (e.g., city search or geoposition).
+      operationId: getCurrentConditions
+      tags:
+        - Current Conditions
+      parameters:
+        - name: locationKey
+          in: path
+          description: A unique ID that designates a specific location.
+          required: true
+          schema:
+            type: string
+            example: "349727"
+        - name: format
+          in: query
+          description: Specifies the format of the response.
+          required: false
+          schema:
+            type: string
+            default: json
+            enum:
+              - json
+              - xml
+        - name: language
+          in: query
+          description: The language in which to return the response.
+          required: false
+          schema:
+            type: string
+            default: en-us
+            example: ru-ru
+        - name: details
+          in: query
+          description: Specifies whether or not to include extended information.
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: getPhotos
+          in: query
+          description: Specifies whether or not to include photos representing the requested location and current weather.
+          required: false
+          schema:
+            type: boolean
+            default: false
+      headers:
+        Authorization:
+          description: API key for authentication. Format is 'Bearer YOUR_API_KEY'.
+          required: true
+          schema:
+            type: string
+            pattern: '^Bearer .+$'
+            example: "Bearer 12345678901234567890123456789012"
+      responses:
+        "200":
+          description: Successful response containing current weather conditions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - LocalObservationDateTime
+                    - EpochTime
+                    - WeatherText
+                    - WeatherIcon
+                    - HasPrecipitation
+                    - PrecipitationType
+                    - IsDayTime
+                    - MobileLink
+                    - Link
+                  properties:
+                    LocalObservationDateTime:
+                      type: string
+                      format: date-time
+                      description: The date and time at which the data was collected, in ISO 8601 format.
+                      example: "2023-10-27T14:30:00-04:00"
+                    EpochTime:
+                      type: integer
+                      format: int64
+                      description: The date and time of observation as the number of seconds since January 1, 1970, 00:00:00 UTC.
+                      example: 1698424200
+                    WeatherText:
+                      type: string
+                      description: A phrase describing the current weather conditions.
+                      example: "Sunny"
+                    WeatherIcon:
+                      type: integer
+                      format: int32
+                      description: A numeric value representing an image for the WeatherText.
+                      example: 1
+                    HasPrecipitation:
+                      type: boolean
+                      description: A flag indicating the presence or absence of precipitation.
+                      example: false
+                    PrecipitationType:
+                      type: string
+                      description: The type of precipitation, if any. Possible values are Rain, Snow, Ice, Mixed, or Null for no precipitation.
+                      example: null
+                    IsDayTime:
+                      type: boolean
+                      description: Indicates whether the observation is during the day (true) or night (false).
+                      example: true
+                    MobileLink:
+                      type: string
+                      format: uri
+                      description: Link to current conditions on AccuWeather's mobile site.
+                      example: "http://www.accuweather.com/en/us/new-york-ny/10007/current-weather/349727?lang=en-us"
+                    Link:
+                      type: string
+                      format: uri
+                      description: Link to current conditions on AccuWeather's free site.
+                      example: "http://www.accuweather.com/en/us/new-york-ny/10007/current-weather/349727?lang=en-us"
+                    Temperature:
+                      type: object
+                      description: Temperature measurements. Present if details=true.
+                      properties:
+                        Metric:
+                          type: object
+                          properties:
+                            Value:
+                              type: number
+                              example: 22.8
+                            Unit:
+                              type: string
+                              example: "C"
+                            UnitType:
+                              type: integer
+                              example: 17
+                        Imperial:
+                          type: object
+                          properties:
+                            Value:
+                              type: number
+                              example: 73
+                            Unit:
+                              type: string
+                              example: "F"
+                            UnitType:
+                              type: integer
+                              example: 18
+                    RealFeelTemperature:
+                      type: object
+                      description: RealFeel Temperature measurements. Present if details=true.
+                    RealFeelTemperatureShade:
+                      type: object
+                      description: RealFeel Temperature in the shade measurements. Present if details=true.
+                    RelativeHumidity:
+                      type: integer
+                      format: int32
+                      description: Relative humidity percentage.
+                      example: 65
+                    IndoorRelativeHumidity:
+                      type: integer
+                      format: int32
+                      nullable: true
+                      description: Indoor relative humidity percentage. May be null.
+                      example: 50
+                    DewPoint:
+                      type: object
+                      description: Dew point temperature. Present if details=true.
+                    Wind:
+                      type: object
+                      description: Wind direction and speed. Present if details=true.
+                    WindGust:
+                      type: object
+                      description: Wind gust speed. Present if details=true.
+                    Visibility:
+                      type: object
+                      description: Visibility distance. Present if details=true.
+                    Ceiling:
+                      type: object
+                      description: Cloud ceiling height. Present if details=true.
+                    Pressure:
+                      type: object
+                      description: Barometric pressure. Present if details=true.
+                    PressureTendency:
+                      type: object
+                      description: Pressure tendency information. Present if details=true.
+                    Past24HourTemperatureDeparture:
+                      type: object
+                      description: Temperature departure from the past 24 hours. Present if details=true.
+                    ApparentTemperature:
+                      type: object
+                      description: Apparent temperature. Present if details=true.
+                    WindChillTemperature:
+                      type: object
+                      description: Wind chill temperature. Present if details=true.
+                    WetBulbTemperature:
+                      type: object
+                      description: Wet bulb temperature. Present if details=true.
+                    Precip1hr:
+                      type: object
+                      description: Precipitation in the last hour. Present if details=true.
+                    Precip6hr:
+                      type: object
+                      description: Precipitation in the last 6 hours. Present if details=true.
+                    Precip24hr:
+                      type: object
+                      description: Precipitation in the last 24 hours. Present if details=true.
+                    UVIndex:
+                      type: integer
+                      format: int32
+                      nullable: true
+                      description: Numerical UV index strength.
+                      example: 5
+                    UVIndexFloat:
+                      type: number
+                      format: float
+                      nullable: true
+                      description: Decimal UV index strength.
+                      example: 5.2
+                    UVIndexText:
+                      type: string
+                      nullable: true
+                      description: Brief UV index status description.
+                      example: "Moderate"
+                    ObstructionsToVisibility:
+                      type: string
+                      nullable: true
+                      description: The limiting factor for visibility distance.
+                      example: "Haze"
+                    CloudCover:
+                      type: integer
+                      format: int32
+                      nullable: true
+                      description: Percentage of sky covered by clouds.
+                      example: 25
