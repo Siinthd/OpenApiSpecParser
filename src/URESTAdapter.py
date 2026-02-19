@@ -1,7 +1,9 @@
 import json
 import httpx
+import os
 from typing import Optional, Dict, Any
 import copy
+from src.utils.loggerdec import log_this
 class ClientBase:
     """Base class for API client"""
 
@@ -62,12 +64,14 @@ class URESTAdapter():
         # Загружаем конфигурацию
         self._load_configuration() 
 
+    @log_this(log_args=True, log_result=False)
     def _load_configuration(self):
         """Загружает конфигурацию endpoints из файла"""
         self.endpoints = self.config
         if self.tokens_file:
             self.tokens = self._load_tokens()
-    
+
+    @log_this(log_args=True, log_result=False)
     def _load_tokens(self):
         """Загружает токены из файла"""
         try:
@@ -84,7 +88,7 @@ class URESTAdapter():
     # формировать data, формировать очередь единичных загрузок
     # Текущая реализация непотокобезопасна
 
-
+    @log_this(log_args=True, log_result=False)
     def execute(self, data:Optional[dict] = None):
         #работаем со входными переменными
         payload = []
@@ -115,7 +119,6 @@ class URESTAdapter():
         headers = entity.get('headers',{}) 
         url = entity.get('url','') 
         
-        entity_name = entity
         #TODO
         # Ищем параметры с Page,они не всегда обязательные
 
@@ -125,8 +128,8 @@ class URESTAdapter():
             page = 1
             
 
-        #Инициализация движка
-        self.init_dataLoader(header=headers,secret = self.tokens[entity.get('operationalId')])
+        #Инициализация движка то
+        self.init_dataLoader(header=headers,secret = self.tokens[entity.get('base_url')])
         result = []
 
         for i in payload:
@@ -179,54 +182,3 @@ class URESTAdapter():
         
         response = self.client._get(url=url,data=data)
         return response if response else None
-    
-
-
-
-if __name__ == "__main__":
-
-    from utils.api_reader import OASParser
-
-    parser = OASParser('C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/accuweather.yaml')
-
-    entity  = parser.request.get('getCurrentConditions')
-  
-
-    with open("C:/Users/kdenis/mu_code/conf.json", "w", encoding="utf-8") as f:
-        json.dump(entity, f, indent=4, ensure_ascii=False)
-
-    '''
-    suggestions.yml
-    ex3.yaml
-    Untitled-2.json
-    pagi.yaml
-    ex4.yaml
-    ex4.yaml
-    '''
-
-    test = URESTAdapter(entity,'C:/Users/kdenis/mu_code/keys.json')
-
-
-        #dict1 = {'query':'ITRORU8YXXX'}
-    input_data = {'lat':'50','lon':'50'}
-    input_data = [666,777,888,999,1111,2222,3333]
-    #input_data = {'q':'RUSSIA'}
-    swift_codes = [
-    'SABRRUMM', 'VTBRRUMM', 'GAZPRUMM', 'ALFARUMM', 'MOSCRUMM',
-    'RSBNRUMM', 'RUWCRUMM', 'ICBKRUMM', 'KOSKRUMM', 'PARNRUMM',
-    'ABNYRUMM', 'CRYPRUMM', 'TICSRUMM', 'PSBZRUMM', 'TKRBRUMM',
-    'JSNMRUMM', 'MIRBRUMM', 'ELSRUMMXXX', 'RNGBRUMM', 'IRONRUMM',
-    'AVJSRUMM', 'ARESRUMM', 'ALILRUMM', 'ITRORU8Y', 'BOCSRUMM',
-    'DOMRRUMM', 'FORTRUMM', 'GLBKRUMM', 'HDCBRUMM', 'KBKTRUMM',
-    'KREMRUMM', 'LBRURUMM', 'MDMBRUMM', 'MEZHRUMM', 'MOPARUMM',
-    'OLMDRUMM', 'ROYCRUMM', 'RZCBRUMM', 'SBERRUMM', 'SGBZRUMM',
-    'SLAVRUMM', 'SOGZRUMM', 'TATKRUMM', 'TKBKRUMM', 'TKZLRUMM',
-    'TKZVRUMM', 'TRNVRUMM', 'VEFKRUMM', 'VTBKRUMM', 'ZENIRUMM'
-]
-    
-    result = test.execute(input_data)
-    with open("C:/Users/kdenis/mu_code/answer.json", "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=4, ensure_ascii=False)
-                
-    print(result)
-

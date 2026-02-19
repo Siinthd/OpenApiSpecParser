@@ -1,22 +1,13 @@
 import yaml
 import json
-from pprint import pprint
 from yaml.loader import SafeLoader
 import re
-import logging
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
-'''
-TODO:
-добавить base_url в спеку
-'''
+from .loggerdec import log_this
 
 
-logging.basicConfig(level=logging.ERROR) 
-COUNTER = 0
 
 class OASParser:
-
+    @log_this(log_args=True, log_result=False)
     def __init__(self, specs: any):
         self.spec = self._load_specification_(specs)
         self.schemas = self.extract_schemas_with_payloads(self.spec)
@@ -24,8 +15,8 @@ class OASParser:
         self.request = self._transform_spec_to_requests(self.post)
         self.api_version = self.spec.get('openapi')
 
+    @log_this(log_args=True, log_result=False)
     def _load_specification_(self,specs:any) ->dict:
-        logging.info('_load_specification_')
         if isinstance(specs, dict):
             return specs
         content = specs
@@ -49,8 +40,8 @@ class OASParser:
             except:
                 raise ValueError("Невалидный OpenAPI spec")
     
+    @log_this(log_args=True, log_result=False)
     def _resolve_refs_in_operation(self, operation_spec: dict,ref_dict : dict) -> dict:
-        logging.info('_resolve_refs_in_operation')
         """
         Заменяет $ref в параметрах операции.
         """
@@ -78,9 +69,9 @@ class OASParser:
                     self._resolve_refs_in_operation(item, ref_dict)
         
         return operation_spec
-
+    
+    @log_this(log_args=True, log_result=False)
     def _parse_specification(self, spec_dict: dict) -> dict:
-        logging.info('_parse_specification')
         result = {}
         servers = spec_dict.get('servers', [])
         server_list = []
@@ -112,7 +103,7 @@ class OASParser:
                                 endpoint_data['response'] = response
 
                         if method_security is not None:
-                            # Используем security из метода
+                            # Используем security из метода - выкинуть
                             endpoint_data['security'] = method_security
                         
                         request_body = method_details.get('requestBody', {})
@@ -141,22 +132,24 @@ class OASParser:
                             server_id = '_'.join(match.group(1).split('.')[:-1])
 
                         if operation_id:
+                            operation_id = f"{server_id}_{operation_id}"
                             endpoint_data['operationId'] = operation_id
                         else:
                             path_id = re.findall(r'\{(\w+)\}', path)
-                            operation_id = f"{server_id}_{method_name}_by_{'_'.join(path_id)}" if path_id else path.split('/')[-1]
+                            operation_id = f"{server_id}_{method_name}{'_'.join(path_id)}" if path_id else path.split('/')[-1]
                             endpoint_data['operationId'] = operation_id    
-                        
+                        endpoint_data['base_url'] = base_url
                         if operation_id not in result:
                             result[operation_id] = {}
                         if parameters:
                             endpoint_data['parameters'] = parameters
                         endpoint_data['method'] = method_upper
+
                         result[operation_id].update(endpoint_data)
         return self._resolve_refs_in_operation(result,self.schemas)
-
+    
+    @log_this(log_args=True, log_result=False)
     def _transform_spec_to_requests(self, api_spec: dict) -> dict:
-        logging.info('_transform_spec_to_requests')
         requests_map = {}
         
         for operation_id, spec in api_spec.items():
@@ -166,7 +159,7 @@ class OASParser:
                 
                 # Получаем метод
                 method = spec.get("method", "GET").upper()
-                
+                base_url = spec.get("base_url", "")
                 # Получаем путь
                 url = spec["path"]
                 
@@ -174,7 +167,7 @@ class OASParser:
                 all_variables = set()
                 required_variables = set()
                 
-                # 1. Path параметры из parameters
+                # Path параметры из parameters
                 parameters = spec.get("parameters", [])
                 for param in parameters:
                     if isinstance(param, dict):
@@ -187,7 +180,7 @@ class OASParser:
                             if param_required:
                                 required_variables.add(param_name)
                 
-                # 2. Path параметры из reqref_params
+                #  Path параметры из reqref_params
                 reqref_params = spec.get("reqref_params", [])
                 for param in reqref_params:
                     if isinstance(param, str):
@@ -199,14 +192,14 @@ class OASParser:
                             all_variables.add(param_name)
                             required_variables.add(param_name)
                 
-                # 3. Path переменные из URL
+                # Path переменные из URL
                 import re
                 path_vars = re.findall(r'\{([^}]+)\}', url)
                 for var in path_vars:
                     all_variables.add(var)
                     required_variables.add(var)
                 
-                # 4. Query параметры из parameters
+                # Query параметры из parameters
                 for param in parameters:
                     if isinstance(param, dict):
                         param_name = param.get("name")
@@ -372,6 +365,7 @@ class OASParser:
                 
                 # Формируем финальную конфигурацию
                 requests_map[key] = {
+                    "base_url":base_url,
                     "operationalId": key,
                     "method": method,
                     "url": url,
@@ -394,6 +388,7 @@ class OASParser:
         
         return requests_map
 
+    @log_this(log_args=True, log_result=False)
     def get_response(self,ID:str = None): 
         response = {}
         if ID:
@@ -410,15 +405,13 @@ class OASParser:
         return self.request
     
     def __parse_response(self,data:dict) -> dict:
-        logging.info('__parse_response')
         result = {}
         for response_code,response_value in data.items():
             if isinstance(response_value,dict):
                 result[response_code] = self.__find_schema(response_value)
         return result
-            
+    
     def __find_schema(self,data:dict):
-        logging.info('__find_schema')
         if isinstance(data, dict):
             if 'schema' in data:
                 return data['schema']
@@ -432,7 +425,7 @@ class OASParser:
                 if result is not None:
                     return result
         return None
-
+    @log_this(log_args=True, log_result=False)
     def _schema_to_payload(self, schema: dict) -> dict:
         """Преобразует одну схему в payload структуру"""
         payload = {}
@@ -518,9 +511,8 @@ class OASParser:
                 payload['value']['$ref'] = schema['$ref']
         
         return payload
-
+    @log_this(log_args=True, log_result=False)
     def extract_schemas_with_payloads(self, spec_dict: dict) -> dict:
-        logging.info('extract_schemas_with_payloads')
         """
         Извлекает все схемы из всех разделов components и преобразует их в payload
         Возвращает словарь {полный_ref: payload}
@@ -636,11 +628,4 @@ class OASParser:
         
         return resolved_payloads
 
-
-if __name__ == "__main__":
-
-    
-    parser = OASParser('C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/accuweather.yaml')
-
-    entity  = parser.request.get()
   
