@@ -1,7 +1,6 @@
 import json
 import httpx
-import os
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 import copy
 from src.utils.loggerdec import log_this
 class ClientBase:
