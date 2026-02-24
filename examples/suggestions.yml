@@ -4,7 +4,11 @@ info:
     version: v4.1
 servers:
     - url: https://suggestions.dadata.ru/suggestions
+    - url: https://suggestions.dadata.dev.ru/suggestions
+    - url: https://suggestions.dadata.uat.ru/suggestions
+    - url: https://suggestions.dadata.stage.ru/suggestions
       description: Main suggestions server.
+    
 paths:
     /api/4_1/rs/suggest/{name}:
         post:

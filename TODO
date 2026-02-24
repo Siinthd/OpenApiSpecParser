@@ -1,0 +1,25 @@
+
+
+->get_response_schema_as_json()
+->get_response_schema_as_xsd()
+->get_response_as_json()
+->get_response_as_xml()
+
+
+
+input:
+    #Если есть конфигурационный файл
+    conf_file(str)
+    conf_file_as_dict(dict)
+    #если этого файла нет,но мы указываем их явно хардкодом
+    entity(operation_name)
+    OpenAPISpecYAMLFilename
+    target_path
+    Token_dict
+    retry
+    timeouts
+
+    Pagination_param
+    controlAnswerParam
+
+

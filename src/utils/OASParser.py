@@ -7,7 +7,7 @@ from .loggerdec import log_this
 
 
 class OASParser:
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def __init__(self, specs: any):
         self.spec = self._load_specification_(specs)
         self.schemas = self.extract_schemas_with_payloads(self.spec)
@@ -15,7 +15,7 @@ class OASParser:
         self.request = self._transform_spec_to_requests(self.post)
         self.api_version = self.spec.get('openapi')
 
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def _load_specification_(self,specs:any) ->dict:
         if isinstance(specs, dict):
             return specs
@@ -40,7 +40,7 @@ class OASParser:
             except:
                 raise ValueError("Невалидный OpenAPI spec")
     
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def _resolve_refs_in_operation(self, operation_spec: dict,ref_dict : dict) -> dict:
         """
         Заменяет $ref в параметрах операции.
@@ -70,8 +70,19 @@ class OASParser:
         
         return operation_spec
     
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def _parse_specification(self, spec_dict: dict) -> dict:
+        env_names = [
+                    # Development
+                    "dev", "development", "local", "feature", "dev1", "dev2", "sandbox",
+                    "dev-int", "fe", "be", "devtest",
+                    # Test / QA 
+                    "test", "testing", "qa", "qa1", "qa2", "tst", "sit", "integration",
+                    "int", "smoke", "regression", "func",
+                    # UAT / Stage / Pre-prod
+                    "uat", "stage", "staging", "preprod", "pre-prod", "rc", "demo", "model",
+                    "stg", "beta"]
+        
         result = {}
         servers = spec_dict.get('servers', [])
         server_list = []
@@ -125,19 +136,16 @@ class OASParser:
                             endpoint_data['reqref_params'] = param_list
                         if server_list:
                             endpoint_data[server_variable] = server_list
-                        operation_id = method_details.get('operationId', '')
-                        match =  re.search(r'https?://([^/\s]+)', server.get('url'))
-                        server_id = ''
+                        sorted_names = sorted(env_names, key=len, reverse=True)
+                        pattern = r'(?:^|[\/\-_.])({})(?:$|[\/\-_.?&#])'.format('|'.join(map(re.escape, sorted_names)))
+                        match = re.search(pattern, server.get('url'), re.IGNORECASE)
+                        pre_path = path.replace('{','_').replace('}','_').replace('-','_')
+                        operation_id = f"{method_name}{'_'.join(pre_path.split('/'))}" 
+                        endpoint_data['operationId'] = operation_id
                         if match:
-                            server_id = '_'.join(match.group(1).split('.')[:-1])
-
-                        if operation_id:
-                            operation_id = f"{server_id}_{operation_id}"
+                            operation_id = f"{operation_id}_{match.group(1)}"
                             endpoint_data['operationId'] = operation_id
-                        else:
-                            path_id = re.findall(r'\{(\w+)\}', path)
-                            operation_id = f"{server_id}_{method_name}{'_'.join(path_id)}" if path_id else path.split('/')[-1]
-                            endpoint_data['operationId'] = operation_id    
+
                         endpoint_data['base_url'] = base_url
                         if operation_id not in result:
                             result[operation_id] = {}
@@ -148,7 +156,7 @@ class OASParser:
                         result[operation_id].update(endpoint_data)
         return self._resolve_refs_in_operation(result,self.schemas)
     
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def _transform_spec_to_requests(self, api_spec: dict) -> dict:
         requests_map = {}
         
@@ -388,7 +396,7 @@ class OASParser:
         
         return requests_map
 
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def get_response(self,ID:str = None): 
         response = {}
         if ID:
@@ -439,7 +447,7 @@ class OASParser:
         return schemas
 
 
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def _schema_to_payload(self, schema: dict) -> dict:
         """Преобразует одну схему в payload структуру"""
         payload = {}
@@ -525,7 +533,7 @@ class OASParser:
                 payload['value']['$ref'] = schema['$ref']
         
         return payload
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def extract_schemas_with_payloads(self, spec_dict: dict) -> dict:
         """
         Извлекает все схемы из всех разделов components и преобразует их в payload

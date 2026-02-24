@@ -3,6 +3,7 @@ import httpx
 from typing import Optional, Any
 import copy
 from src.utils.loggerdec import log_this
+
 class ClientBase:
     """Base class for API client"""
 
@@ -44,7 +45,7 @@ class ClientBase:
 
 class URESTAdapter():
     
-    def __init__(self, config: Any, tokens_file: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(self, config: Any, token: Optional[str] = None, base_url: Optional[str] = None):
         """
         Инициализация клиента API
         
@@ -54,7 +55,7 @@ class URESTAdapter():
             base_url: Базовый URL для относительных путей (опционально)
         """
         self.config = copy.deepcopy(config)
-        self.tokens_file = tokens_file
+        self.token = token
         self.base_url = base_url
         self.endpoints = {}
         self.tokens = {}
@@ -63,14 +64,15 @@ class URESTAdapter():
         # Загружаем конфигурацию
         self._load_configuration() 
 
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def _load_configuration(self):
         """Загружает конфигурацию endpoints из файла"""
         self.endpoints = self.config
-        if self.tokens_file:
-            self.tokens = self._load_tokens()
+        if self.token:
+            self.tokens = self.token
 
-    @log_this(log_args=True, log_result=False)
+    '''
+    @log_this(log_args=False, log_result=False)
     def _load_tokens(self):
         """Загружает токены из файла"""
         try:
@@ -80,6 +82,7 @@ class URESTAdapter():
             print(f"Ошибка загрузки токенов: {e}")
             tokens = {}
         return tokens
+    '''
 
     # TODO 
     # проверка есть ли ключи словаря в спеке
@@ -87,7 +90,7 @@ class URESTAdapter():
     # формировать data, формировать очередь единичных загрузок
     # Текущая реализация непотокобезопасна
 
-    @log_this(log_args=True, log_result=False)
+    @log_this(log_args=False, log_result=False)
     def execute(self, data:Optional[dict] = None):
         #работаем со входными переменными
         payload = []
@@ -125,10 +128,9 @@ class URESTAdapter():
         if 'Page'.upper() in [i.upper() for i in page]:
             pagination = True
             page = 1
-            
-
+              
         #Инициализация движка то
-        self.init_dataLoader(header=headers,secret = self.tokens[entity.get('base_url')])
+        self.init_dataLoader(header=headers,secret = self.token)
         result = []
 
         for i in payload:
