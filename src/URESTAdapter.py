@@ -60,9 +60,11 @@ class URESTAdapter():
         self.endpoints = {}
         self.tokens = {}
         self.client = None
+        self.headers = {}
 
         # Загружаем конфигурацию
         self._load_configuration() 
+        
 
     @log_this(log_args=False, log_result=False)
     def _load_configuration(self):
@@ -70,6 +72,7 @@ class URESTAdapter():
         self.endpoints = self.config
         if self.token:
             self.tokens = self.token
+        self.headers = self.config.get('headers',{}) 
 
     
     '''
@@ -92,68 +95,10 @@ class URESTAdapter():
     # Текущая реализация непотокобезопасна
 
     @log_this(log_args=False, log_result=False)
-    def execute(self, data:Optional[dict] = None):
-
-        #работаем со входными переменными - это все перенести в REST2API
-        payload = []
-        pagination = False
-        entity = self.endpoints
-        required = entity.get('required',[])
-        variables = entity.get('variables',[])
-        datatype =  type(data)
-        if datatype == dict:
-            entity_variables = entity.get('variables',None)
-            keys = data.keys()
-            if set(entity_variables) & set(keys):
-                print('переменная(ые) есть в списке')
-            payload = [data]
-        elif datatype == list:
-            if  all(isinstance(item, dict) for item in data): #проверяем что это не список словарей
-                payload = data
-            else:
-                if len(required) == 1:
-                        payload = [{required[0]: value} for value in data]    
-                else:
-                    print('Требуется явно указать параметр(ы) запроса')
-        elif data:
-            payload = [{required[0]: value} for value in [data]]
-        #############################
-        #собираем хидор - оставляем здесь
-        method = entity.get('method','GET') #GET - по умолчанию
-
-
-        ###################это передать в конструктор адаптера
-        headers = entity.get('headers',{}) 
-        url = entity.get('url','') 
-        
-        #TODO
-        # Ищем параметры с Page,они не всегда обязательные
-
-        #Инициализация движка тоже в конструктор
-        self.init_dataLoader(header=headers,secret = self.token)
-        result = []
-
-        # разобрать под единичный вызов
-        for i in payload:
-            try:
-                    url = url.format(**i)
-                    _dbg = self.make_request(url,method,**i)
-                    empty_dict = True
-                    if isinstance(_dbg,dict):
-                        for value in _dbg.values():
-                            if not value:  
-                                    empty_dict =  True
-                            else:
-                                empty_dict = False
-                        if not empty_dict:
-                            result.append(_dbg)
-                    else:
-                        result.append(_dbg)
-
-            except Exception as e: 
-                print(f'Загрузка остановлена по причине: {e}')
-
-        return result
+    def execute(self,data:Optional[dict] = None):
+        method = self.config.get('method','GET') #GET - по умолчанию
+        url = self.config.get('url','').format(**data)
+        return self.make_request(url,method,**data)
         #возврат одного вызова
 
 
@@ -171,10 +116,11 @@ class URESTAdapter():
     
         return methods[method.upper()](url, kwargs)
 
-    def init_dataLoader(self,header:dict,secret:dict,timeout=5):
+    def init_dataLoader(self,timeout=5):
+        
         self.client = ClientBase(
-            headers = header,
-            secret=secret
+            headers = self.headers,
+            secret=self.token
         )
     
     def _post(self,url:str,data):

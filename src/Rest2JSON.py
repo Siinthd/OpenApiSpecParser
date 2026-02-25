@@ -2,8 +2,8 @@
 
 #на вход получает конфигурацию - разбивает ее,выбирает стратегию,по возможности - внешняя оценка результата для контроля загрузки
 
-from utils.OASParser import OASParser
-from URESTAdapter import URESTAdapter
+from src.utils.OASParser import OASParser
+from src.URESTAdapter import URESTAdapter
 
 class ParserAdapter(OASParser):
     def __init__(self, filename):
@@ -27,18 +27,18 @@ class ClientAdapter(URESTAdapter):
         return self._client
     
     def execute(self, data):
-        client = self.get_client()
-        return client.execute(data)  # предполагаем, что у URESTAdapter есть метод execute
+        return self.client.execute(data)  #у URESTAdapter есть метод execute
 
 
 class REST2JSON:
     def __init__(self,
                 config_file = None):
         self.config_file = config_file
-        self.entity,self.OpenAPISpecYAMLFilename,self.TokensFilename = self.__load_configuration(config_file)
-        self.parser_adapter = ParserAdapter(self.OpenAPISpecYAMLFilename)
-        self.Tokens = self.Tokens_MOCK(self.TokensFilenam)
-        self.client_adapter = ClientAdapter(self.entity,self.Tokens)
+        self.entity_name,self.OpenAPISpecYAMLFilename,self.TokensFilename = self.__load_configuration(config_file)
+        self.parser_adapter = ParserAdapter(self.OpenAPISpecYAMLFilename).get_parser()
+        self.entity_config = self.parser_adapter.request.get(self.entity_name)
+        self.Tokens = self.Tokens_MOCK(self.TokensFilename)
+        self.client_adapter = ClientAdapter(self.entity_config,self.Tokens)
         self.parser = None
         self.RESTClient = None
         self.run()
@@ -50,12 +50,12 @@ class REST2JSON:
     
         from omegaconf import OmegaConf
 
-        config = OmegaConf.load(filename)
+        config = OmegaConf.load(filename).REST2JSON
         return config.entity,config.OpenAPISpecYAMLFilename,config.Token_src
     
     def run(self):
         # Получаем парсер
-        self.parser = self.parser_adapter.get_parser()
+        #self.parser = self.parser_adapter.get_parser()
         
         # Используем данные из парсера
         self.RESTClient = self.client_adapter.get_client()
@@ -66,20 +66,66 @@ class REST2JSON:
             self.parser = self.parser_adapter.get_parser()
         return self.parser.get_response()
     
-    def get_response(self):
-        # реализация
-        pass
+
+    #пока что ленивая реализация из адаптера
+    def get_response(self,data):
+        #работаем со входными переменными - это все перенести в REST2API
+        payload = []
+        pagination = False
+        required = self.entity_config.get('required',[])
+        variables = self.entity_config.get('variables',[])
+        datatype =  type(data)
+        if datatype == dict:
+            entity_variables = self.entity_config.get('variables',None)
+            keys = data.keys()
+            if set(entity_variables) & set(keys):
+                print('переменная(ые) есть в списке')
+            payload = [data]
+        elif datatype == list:
+            if  all(isinstance(item, dict) for item in data): #проверяем что это не список словарей
+                payload = data
+            else:
+                if len(required) == 1:
+                        payload = [{required[0]: value} for value in data]    
+                else:
+                    print('Требуется явно указать параметр(ы) запроса')
+        elif data:
+            payload = [{required[0]: value} for value in [data]]
+
+        #TODO
+        # Ищем параметры с Page,они не всегда обязательные
+        #Инициализация движка тоже в конструктор
+        self.RESTClient.init_dataLoader()
+        result = []
+
+        # разобрать под единичный вызов
+        for i in payload:
+            try:
+                    _dbg = self.RESTClient.execute(i) 
+                    empty_dict = True
+                    if isinstance(_dbg,dict):
+                        for value in _dbg.values():
+                            if not value:  
+                                    empty_dict =  True
+                            else:
+                                empty_dict = False
+                        if not empty_dict:
+                            result.append(_dbg)
+                    else:
+                        result.append(_dbg)
+
+            except Exception as e: 
+                print(f'Загрузка остановлена по причине: {e}')
+
+        return result
+    
     def Tokens_MOCK(self,filename):
         import json
             #Mock сервера ключей
         with open(filename, 'r', encoding='utf-8') as f:
             tokens = json.load(f)
-        token = tokens.get(self.entity.get('base_url'))
+        token = tokens.get(self.entity_config.get('base_url'))
         return token
-
-rest = REST2JSON(config_file = 'C:/Users/kdenis/Documents/Work/OpenApiSpecParser/src/config.yaml')
-
-
 
 
 '''
