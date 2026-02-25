@@ -8,7 +8,7 @@ from pathlib import Path
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 
 # Настройка базового логгера
-def setup_logger(name: str = "app", log_file: str = None, level=logging.INFO):
+def setup_logger(name: str = "app", log_file: str = None, level=logging.CRITICAL):
 
     logger = logging.getLogger(name)
     

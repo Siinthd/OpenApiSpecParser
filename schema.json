@@ -1,0 +1,1002 @@
+{
+ "200": {
+  "description": "OK",
+  "content": {
+   "application/json": {
+    "schema": {
+     "type": "object",
+     "properties": {
+      "suggestions": {
+       "type": "array",
+       "nullable": true,
+       "items": {
+        "type": "object",
+        "properties": {
+         "data": {
+          "required": [
+           "name",
+           "opf",
+           "state"
+          ],
+          "type": "object",
+          "properties": {
+           "address": {
+            "type": "object",
+            "properties": {
+             "data": {
+              "type": "object",
+              "properties": {
+               "area": {
+                "type": "string",
+                "nullable": true
+               },
+               "area_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "area_kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "area_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "area_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "area_with_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "beltway_distance": {
+                "type": "string",
+                "nullable": true
+               },
+               "beltway_hit": {
+                "type": "string",
+                "nullable": true
+               },
+               "block": {
+                "type": "string",
+                "nullable": true
+               },
+               "block_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "block_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "capital_marker": {
+                "type": "string",
+                "nullable": true
+               },
+               "city": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_area": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_district": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_district_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_district_kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_district_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_district_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_district_with_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "city_with_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "country": {
+                "type": "string",
+                "nullable": true
+               },
+               "country_iso_code": {
+                "type": "string",
+                "nullable": true
+               },
+               "custom": {
+                "type": "array",
+                "nullable": true,
+                "items": {
+                 "type": "object"
+                }
+               },
+               "divisions": {
+                "type": "object",
+                "properties": {
+                 "administrative": {
+                  "type": "object",
+                  "properties": {
+                   "area": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   },
+                   "city": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   },
+                   "city_district": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   },
+                   "planning_structure": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   },
+                   "settlement": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   }
+                  }
+                 },
+                 "municipal": {
+                  "type": "object",
+                  "properties": {
+                   "area": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   },
+                   "city": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   },
+                   "planning_structure": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   },
+                   "settlement": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   },
+                   "sub_area": {
+                    "type": "object",
+                    "properties": {
+                     "fias_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "kladr_id": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "name_with_type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type": {
+                      "type": "string",
+                      "nullable": true
+                     },
+                     "type_full": {
+                      "type": "string",
+                      "nullable": true
+                     }
+                    }
+                   }
+                  }
+                 }
+                }
+               },
+               "entrance": {
+                "type": "string",
+                "nullable": true
+               },
+               "federal_district": {
+                "type": "string",
+                "nullable": true
+               },
+               "fias_actuality_state": {
+                "type": "string",
+                "nullable": true
+               },
+               "fias_code": {
+                "type": "string",
+                "nullable": true
+               },
+               "fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "fias_level": {
+                "type": "string",
+                "nullable": true
+               },
+               "flat": {
+                "type": "string",
+                "nullable": true
+               },
+               "flat_area": {
+                "type": "string",
+                "nullable": true
+               },
+               "flat_cadnum": {
+                "type": "string",
+                "nullable": true
+               },
+               "flat_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "flat_price": {
+                "type": "string",
+                "nullable": true
+               },
+               "flat_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "flat_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "floor": {
+                "type": "string",
+                "nullable": true
+               },
+               "geo_lat": {
+                "type": "string",
+                "nullable": true
+               },
+               "geo_lon": {
+                "type": "string",
+                "nullable": true
+               },
+               "geoname_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "history_values": {
+                "type": "array",
+                "nullable": true,
+                "items": {
+                 "type": "string"
+                }
+               },
+               "house": {
+                "type": "string",
+                "nullable": true
+               },
+               "house_cadnum": {
+                "type": "string",
+                "nullable": true
+               },
+               "house_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "house_flat_count": {
+                "type": "string",
+                "nullable": true
+               },
+               "house_kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "house_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "house_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "metro": {
+                "type": "array",
+                "nullable": true,
+                "items": {
+                 "type": "object",
+                 "properties": {
+                  "distance": {
+                   "type": "number",
+                   "format": "double",
+                   "nullable": true
+                  },
+                  "line": {
+                   "type": "string",
+                   "nullable": true
+                  },
+                  "name": {
+                   "type": "string",
+                   "nullable": true
+                  }
+                 }
+                }
+               },
+               "okato": {
+                "type": "string",
+                "nullable": true
+               },
+               "oktmo": {
+                "type": "string",
+                "nullable": true
+               },
+               "postal_box": {
+                "type": "string",
+                "nullable": true
+               },
+               "postal_code": {
+                "type": "string",
+                "nullable": true
+               },
+               "qc": {
+                "type": "string",
+                "nullable": true
+               },
+               "qc_complete": {
+                "type": "string",
+                "nullable": true
+               },
+               "qc_geo": {
+                "type": "string",
+                "nullable": true
+               },
+               "qc_house": {
+                "type": "string",
+                "nullable": true
+               },
+               "region": {
+                "type": "string",
+                "nullable": true
+               },
+               "region_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "region_iso_code": {
+                "type": "string",
+                "nullable": true
+               },
+               "region_kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "region_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "region_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "region_with_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "room": {
+                "type": "string",
+                "nullable": true
+               },
+               "room_cadnum": {
+                "type": "string",
+                "nullable": true
+               },
+               "room_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "room_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "room_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "settlement": {
+                "type": "string",
+                "nullable": true
+               },
+               "settlement_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "settlement_kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "settlement_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "settlement_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "settlement_with_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "source": {
+                "type": "string",
+                "nullable": true
+               },
+               "square_meter_price": {
+                "type": "string",
+                "nullable": true
+               },
+               "stead": {
+                "type": "string",
+                "nullable": true
+               },
+               "stead_cadnum": {
+                "type": "string",
+                "nullable": true
+               },
+               "stead_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "stead_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "stead_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "street": {
+                "type": "string",
+                "nullable": true
+               },
+               "street_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "street_kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "street_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "street_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "street_with_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "sub_area": {
+                "type": "string",
+                "nullable": true
+               },
+               "sub_area_fias_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "sub_area_kladr_id": {
+                "type": "string",
+                "nullable": true
+               },
+               "sub_area_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "sub_area_type_full": {
+                "type": "string",
+                "nullable": true
+               },
+               "sub_area_with_type": {
+                "type": "string",
+                "nullable": true
+               },
+               "tax_office": {
+                "type": "string",
+                "nullable": true
+               },
+               "tax_office_legal": {
+                "type": "string",
+                "nullable": true
+               },
+               "timezone": {
+                "type": "string",
+                "nullable": true
+               },
+               "unparsed_parts": {
+                "type": "string",
+                "nullable": true
+               }
+              }
+             },
+             "unrestricted_value": {
+              "type": "string",
+              "nullable": true
+             },
+             "value": {
+              "type": "string",
+              "nullable": true
+             }
+            }
+           },
+           "bic": {
+            "type": "string",
+            "nullable": true
+           },
+           "cbr": {
+            "type": "object"
+           },
+           "correspondent_account": {
+            "type": "string",
+            "nullable": true
+           },
+           "inn": {
+            "type": "string",
+            "nullable": true
+           },
+           "kpp": {
+            "type": "string",
+            "nullable": true
+           },
+           "name": {
+            "type": "object",
+            "properties": {
+             "full_value": {
+              "type": "string",
+              "nullable": true
+             },
+             "payment": {
+              "type": "string",
+              "nullable": true
+             },
+             "short_value": {
+              "type": "string",
+              "nullable": true
+             }
+            }
+           },
+           "okpo": {
+            "type": "string",
+            "nullable": true
+           },
+           "opf": {
+            "type": "object",
+            "properties": {
+             "full_value": {
+              "type": "string",
+              "nullable": true
+             },
+             "short_value": {
+              "type": "string",
+              "nullable": true
+             },
+             "type": {
+              "type": "string",
+              "nullable": true,
+              "enum": [
+               "BANK",
+               "NKO",
+               "BANK_BRANCH",
+               "NKO_BRANCH",
+               "RKC",
+               "CBR",
+               "TREASURY",
+               "OTHER"
+              ]
+             }
+            }
+           },
+           "payment_city": {
+            "type": "string",
+            "nullable": true
+           },
+           "phones": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+             "type": "object",
+             "properties": {
+              "data": {
+               "type": "object",
+               "properties": {
+                "city": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "city_code": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "country": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "country_code": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "extension": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "number": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "provider": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "qc": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "qc_conflict": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "region": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "source": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "timezone": {
+                 "type": "string",
+                 "nullable": true
+                },
+                "type": {
+                 "type": "string",
+                 "nullable": true
+                }
+               }
+              },
+              "unrestricted_value": {
+               "type": "string",
+               "nullable": true
+              },
+              "value": {
+               "type": "string",
+               "nullable": true
+              }
+             }
+            }
+           },
+           "registration_number": {
+            "type": "string",
+            "nullable": true
+           },
+           "rkc": {
+            "type": "object"
+           },
+           "state": {
+            "required": [
+             "status"
+            ],
+            "type": "object",
+            "properties": {
+             "actuality_date": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+             },
+             "code": {
+              "type": "string",
+              "nullable": true
+             },
+             "liquidation_date": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+             },
+             "registration_date": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+             },
+             "status": {
+              "type": "string",
+              "enum": [
+               "ACTIVE",
+               "LIQUIDATING",
+               "LIQUIDATED"
+              ]
+             }
+            }
+           },
+           "swift": {
+            "type": "string",
+            "nullable": true
+           },
+           "treasury_accounts": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+             "type": "string"
+            }
+           }
+          }
+         },
+         "unrestricted_value": {
+          "type": "string",
+          "nullable": true
+         },
+         "value": {
+          "type": "string",
+          "nullable": true
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

@@ -71,6 +71,7 @@ class URESTAdapter():
         if self.token:
             self.tokens = self.token
 
+    
     '''
     @log_this(log_args=False, log_result=False)
     def _load_tokens(self):
@@ -92,7 +93,8 @@ class URESTAdapter():
 
     @log_this(log_args=False, log_result=False)
     def execute(self, data:Optional[dict] = None):
-        #работаем со входными переменными
+
+        #работаем со входными переменными - это все перенести в REST2API
         payload = []
         pagination = False
         entity = self.endpoints
@@ -115,24 +117,23 @@ class URESTAdapter():
                     print('Требуется явно указать параметр(ы) запроса')
         elif data:
             payload = [{required[0]: value} for value in [data]]
-
-        #собираем хидор
+        #############################
+        #собираем хидор - оставляем здесь
         method = entity.get('method','GET') #GET - по умолчанию
+
+
+        ###################это передать в конструктор адаптера
         headers = entity.get('headers',{}) 
         url = entity.get('url','') 
         
         #TODO
         # Ищем параметры с Page,они не всегда обязательные
 
-        page = list(set(required+variables))
-        if 'Page'.upper() in [i.upper() for i in page]:
-            pagination = True
-            page = 1
-              
-        #Инициализация движка то
+        #Инициализация движка тоже в конструктор
         self.init_dataLoader(header=headers,secret = self.token)
         result = []
 
+        # разобрать под единичный вызов
         for i in payload:
             try:
                     url = url.format(**i)
@@ -153,6 +154,8 @@ class URESTAdapter():
                 print(f'Загрузка остановлена по причине: {e}')
 
         return result
+        #возврат одного вызова
+
 
     def make_request(self,url, method, **kwargs):
 

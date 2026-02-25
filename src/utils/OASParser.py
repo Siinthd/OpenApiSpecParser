@@ -1,22 +1,26 @@
 import yaml
 import json
-from yaml.loader import SafeLoader
 import re
 from .loggerdec import log_this
-
+import copy
 
 
 class OASParser:
-    @log_this(log_args=False, log_result=False)
     def __init__(self, specs: any):
         self.spec = self._load_specification_(specs)
-        self.schemas = self.extract_schemas_with_payloads(self.spec)
+        #Версия словаря для REST2JSON
+        self.schemas = self.extract_schemas_with_payloads(copy.deepcopy(self.spec))
+        #Версия словаря для OneETL
+        self.schemas_raw = self.extract_schemas(copy.deepcopy(self.spec))
+        #Парсим документ,формируем справочник
         self.post = self._parse_specification(self.spec)
-        self.request = self._transform_spec_to_requests(self.post)
-        self.api_version = self.spec.get('openapi')
+        #Версия словаря для REST2JSON
+        self.request = self._transform_spec_to_requests(self._resolve_refs_in_operation(copy.deepcopy(self.post),self.schemas))
+        #Версия словаря для OneETL
+        self.response_map = self._resolve_refs_in_operation(copy.deepcopy(self.post),self.schemas_raw)
 
-    @log_this(log_args=False, log_result=False)
     def _load_specification_(self,specs:any) ->dict:
+        
         if isinstance(specs, dict):
             return specs
         content = specs
@@ -29,7 +33,6 @@ class OASParser:
                     content = f.read()
             except:
                 raise ValueError("Ошибка при открытии файла OpenAPI spec")
-        
         # пробуем JSON, потом YAML
         try:
             return json.loads(content)
@@ -40,7 +43,6 @@ class OASParser:
             except:
                 raise ValueError("Невалидный OpenAPI spec")
     
-    @log_this(log_args=False, log_result=False)
     def _resolve_refs_in_operation(self, operation_spec: dict,ref_dict : dict) -> dict:
         """
         Заменяет $ref в параметрах операции.
@@ -69,8 +71,7 @@ class OASParser:
                     self._resolve_refs_in_operation(item, ref_dict)
         
         return operation_spec
-    
-    @log_this(log_args=False, log_result=False)
+
     def _parse_specification(self, spec_dict: dict) -> dict:
         env_names = [
                     # Development
@@ -109,7 +110,8 @@ class OASParser:
                         method_responses = method_details.get('responses')
                         if method_responses is not None:
                             # Добавить схему ответа
-                            response = self.__parse_response(method_responses)
+
+                            response = method_details.get('responses')
                             if response is not None:
                                 endpoint_data['response'] = response
 
@@ -154,9 +156,8 @@ class OASParser:
                         endpoint_data['method'] = method_upper
 
                         result[operation_id].update(endpoint_data)
-        return self._resolve_refs_in_operation(result,self.schemas)
+        return result
     
-    @log_this(log_args=False, log_result=False)
     def _transform_spec_to_requests(self, api_spec: dict) -> dict:
         requests_map = {}
         
@@ -396,59 +397,25 @@ class OASParser:
         
         return requests_map
 
-    @log_this(log_args=False, log_result=False)
     def get_response(self,ID:str = None): 
+
         response = {}
+
         if ID:
-            entity = self.post.get(ID)
+            entity = self.response_map.get(ID)
             if not entity:
                 raise ValueError(f"Endpoint '{entity}' не найден в конфигурации")
             response = entity.get('response',{})
         else:
-            for key,entity in  self.post.items():
+            for key,entity in  self.response_map.items():
                 response[key] = entity.get('response',{})
         return response
-
+        
     def _get_request_config(self):
         return self.request
-    
-    def __parse_response(self, data: dict) -> dict:
-        result = {}
-        for response_code, response_value in data.items():
-            if isinstance(response_value, dict):
-                schemas = self.__find_schemas(response_value)
-                if schemas:  # если нашли хотя бы одну схему
-                    result[response_code] = schemas
-        return result
 
-    def __find_schemas(self, data):
-        """Возвращает список всех найденных схем в структуре"""
-        schemas = []
-        
-        if isinstance(data, dict):
-            # Проверяем наличие schema
-            if 'schema' in data:
-                schemas.append(data['schema'])
-            
-            # Проверяем наличие прямого $ref
-            if '$ref' in data:
-                schemas.append({'$ref': data['$ref']})
-            
-            # Рекурсивно ищем во всех значениях
-            for key, value in data.items():
-                found_schemas = self.__find_schemas(value)
-                schemas.extend(found_schemas)
-                    
-        elif isinstance(data, list):
-            for item in data:
-                found_schemas = self.__find_schemas(item)
-                schemas.extend(found_schemas)
-        
-        return schemas
-
-
-    @log_this(log_args=False, log_result=False)
     def _schema_to_payload(self, schema: dict) -> dict:
+
         """Преобразует одну схему в payload структуру"""
         payload = {}
         composite_types = ['oneOf', 'anyOf', 'allOf']
@@ -533,7 +500,66 @@ class OASParser:
                 payload['value']['$ref'] = schema['$ref']
         
         return payload
-    @log_this(log_args=False, log_result=False)
+
+    def extract_schemas(self, openapi_spec: dict) -> dict:
+        
+        # Загружаем сырые схемы
+        raw_schemas = {}
+        if 'components' in openapi_spec and isinstance(openapi_spec['components'], dict):
+            if 'schemas' in openapi_spec['components'] and isinstance(openapi_spec['components']['schemas'], dict):
+                for schema_name, schema_content in openapi_spec['components']['schemas'].items():
+                    ref_key = f"#/components/schemas/{schema_name}"
+                    raw_schemas[ref_key] = copy.deepcopy(schema_content)
+        
+        resolved_schemas = {}
+        
+        def resolve_obj(obj, stack=None):
+            """Разрешает ссылки в объекте с контролем стека"""
+            if stack is None:
+                stack = []
+            
+            if isinstance(obj, dict):
+                # Если это словарь с одной ссылкой
+                if "$ref" in obj and len(obj) == 1:
+                    ref = obj["$ref"]
+                    if ref in raw_schemas:
+                        if ref in stack:
+                            return {"type": "object"}  # рекурсия - заменяем на object
+                        
+                        stack.append(ref)
+                        resolved = raw_schemas[ref]
+                        result = resolve_obj(resolved, stack)
+                        stack.pop()
+                        return result
+                    return obj
+                
+                # Обычный словарь
+                result = {}
+                for key, value in obj.items():
+                    if key == "$ref" and isinstance(value, str) and value in raw_schemas:
+                        # Обрабатываем ссылку внутри словаря
+                        if value in stack:
+                            result[key] = {"type": "object"}  # рекурсия - заменяем на object
+                        else:
+                            stack.append(value)
+                            resolved = raw_schemas[value]
+                            result[key] = resolve_obj(resolved, stack)
+                            stack.pop()
+                    else:
+                        result[key] = resolve_obj(value, stack)
+                return result
+            
+            elif isinstance(obj, list):
+                return [resolve_obj(item, stack) for item in obj]
+            
+            return obj
+        
+        # Разрешаем все схемы
+        for ref_key in raw_schemas.keys():
+            resolved_schemas[ref_key] = resolve_obj(raw_schemas[ref_key])
+        
+        return resolved_schemas
+
     def extract_schemas_with_payloads(self, spec_dict: dict) -> dict:
         """
         Извлекает все схемы из всех разделов components и преобразует их в payload

@@ -1,0 +1,10 @@
+entity: "post_api_4_1_rs_suggest_bank"
+OpenAPISpecYAMLFilename: "C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/suggestions.yml"
+target_path: "C:/Users/kdenis/Documents/Work/OpenApiSpecParser/output/"
+Token_src: "C:/Users/kdenis/mu_code/keys.json"
+payload_filename: ""
+retries: 3
+timeout: 30
+Pagination: True
+Page_param: page
+Pagesize_param: per_page
