@@ -29,7 +29,7 @@ class ClientBase:
 
     def close(self):
         """Close network connections"""
-        self._client.aclose()
+        self._client.close()
 
     def _get(self, url, data,headers = None,timeout = None):
         """GET request to Dadata API"""
@@ -59,20 +59,22 @@ class URESTAdapter():
         self.base_url = base_url
         self.endpoints = {}
         self.tokens = {}
-        self.client = None
+        self._client_instance = None
         self.headers = {}
 
-        # Загружаем конфигурацию
-        self._load_configuration() 
-        
+        self._client_owned = False 
 
-    @log_this(log_args=False, log_result=False)
-    def _load_configuration(self):
-        """Загружает конфигурацию endpoints из файла"""
-        self.endpoints = self.config
+    def _prepare_headers(self):
+        headers = self.config.get('headers', {}).copy()
+        
         if self.token:
-            self.tokens = self.token
-        self.headers = self.config.get('headers',{}) 
+            if isinstance(self.token, dict):
+                headers.update(self.token)  
+            elif isinstance(self.token, str):
+                headers['Authorization'] = f"Bearer {self.token}"  
+        
+        return headers    
+
 
     
     '''
@@ -88,21 +90,32 @@ class URESTAdapter():
         return tokens
     '''
 
-    # TODO 
-    # проверка есть ли ключи словаря в спеке
-    # Если required один то подставить его к списку значений
-    # формировать data, формировать очередь единичных загрузок
-    # Текущая реализация непотокобезопасна
+    def execute(self, data=None):
+        data = data or {}  
+        
+        try:
+            url_template = self.config.get('url', '')
+            try:
+                url = url_template.format(**data)
+            except KeyError:
+                url = url_template
+            
+            method = self.config.get('method', 'GET').upper()
+            
+            if method == 'GET':
+                return self.client._get(url, data) 
+            elif method == 'POST':
+                return self.client._post(url, data)
+            else:
+                raise ValueError(f"Unsupported method: {method}")
+                
+        except Exception as e:
+            print(f"Error in execute: {e}")
+            self.close() 
+            raise
 
-    @log_this(log_args=False, log_result=False)
-    def execute(self,data:Optional[dict] = None):
-        method = self.config.get('method','GET') #GET - по умолчанию
-        url = self.config.get('url','').format(**data)
-        return self.make_request(url,method,**data)
-        #возврат одного вызова
 
-
-    def make_request(self,url, method, **kwargs):
+    def make_request(self,url, method, data):
 
         methods = {
         'GET': self._get,
@@ -114,14 +127,29 @@ class URESTAdapter():
         if method.upper() not in methods:
             raise ValueError(f"Unsupported method: {method}")
     
-        return methods[method.upper()](url, kwargs)
-
-    def init_dataLoader(self,timeout=5):
-        
-        self.client = ClientBase(
-            headers = self.headers,
-            secret=self.token
-        )
+        return methods[method.upper()](url, data)
+    
+    @property
+    def client(self):
+        if self._client_instance is None:
+            self._client_instance = ClientBase(
+                headers=self._prepare_headers(),
+                timeout=self.config.get('timeout', 3)
+            )
+            self._client_owned = True
+        return self._client_instance
+    
+    def close(self):
+        if self._client_instance and self._client_owned:
+            self._client_instance.close()
+            self._client_instance = None
+            self._client_owned = False
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, *args):
+        self.close()
     
     def _post(self,url:str,data):
         
