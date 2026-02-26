@@ -1,2 +1,4 @@
 httpx==0.28.1
+omegaconf==2.3.0
 PyYAML==6.0.3
+setuptools==70.1.1
