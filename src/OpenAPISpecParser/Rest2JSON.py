@@ -2,8 +2,8 @@
 
 #на вход получает конфигурацию - разбивает ее,выбирает стратегию,по возможности - внешняя оценка результата для контроля загрузки
 
-from src.utils.OASParser import OASParser
-from src.URESTAdapter import URESTAdapter
+from .utils.OASParser import OASParser
+from .URESTAdapter import URESTAdapter
 
 class ParserAdapter(OASParser):
     def __init__(self, filename):

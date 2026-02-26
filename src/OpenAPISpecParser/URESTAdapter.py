@@ -2,7 +2,7 @@ import json
 import httpx
 from typing import Optional, Any
 import copy
-from src.utils.loggerdec import log_this
+from .utils.loggerdec import log_this
 
 class ClientBase:
     """Base class for API client"""
