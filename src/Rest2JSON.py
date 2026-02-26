@@ -17,17 +17,11 @@ class ParserAdapter(OASParser):
 
 class ClientAdapter(URESTAdapter):
     def __init__(self, entity,secret):
-        self._client = None
-        self.entity = entity
-        self.secret = secret
+        super().__init__(entity, secret)
     
     def get_client(self):
-        if self._client is None:
-            self._client = URESTAdapter(self.entity,self.secret)
-        return self._client
+        return self
     
-    def execute(self, data):
-        return self.client.execute(data)  #у URESTAdapter есть метод execute
 
     # TODO 
     # проверка есть ли ключи словаря в спеке
