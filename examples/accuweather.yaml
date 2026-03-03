@@ -6,6 +6,7 @@ info:
 servers:
   - url: https://dataservice.accuweather.com
     description: AccuWeather API production server
+
 paths:
   /currentconditions/v1/{locationKey}:
     get:

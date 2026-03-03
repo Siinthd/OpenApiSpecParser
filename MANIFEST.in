@@ -1,1 +1,1 @@
-recursive-include src/OpenAPISpecParser *.py
+recursive-include src/REST2JSON *.py

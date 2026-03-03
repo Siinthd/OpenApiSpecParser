@@ -57,15 +57,12 @@ class URESTAdapter():
         self.config = copy.deepcopy(config)
         self.token = token
         self.base_url = base_url
-        self.endpoints = {}
-        self.tokens = {}
         self._client_instance = None
-        self.headers = {}
 
         self._client_owned = False 
 
     def _prepare_headers(self):
-        headers = self.config.get('headers', {}).copy()
+        headers = self.config.get('headers', {})
         
         if self.token:
             if isinstance(self.token, dict):
@@ -76,25 +73,11 @@ class URESTAdapter():
         return headers    
 
 
-    
-    '''
-    @log_this(log_args=False, log_result=False)
-    def _load_tokens(self):
-        """Загружает токены из файла"""
-        try:
-            with open(self.tokens_file, 'r', encoding='utf-8') as f:
-                tokens = json.load(f)
-        except Exception as e:
-            print(f"Ошибка загрузки токенов: {e}")
-            tokens = {}
-        return tokens
-    '''
-
     def execute(self, data=None):
         data = data or {}  
         
         try:
-            url_template = self.config.get('url', '')
+            url_template = f"{self.base_url}{self.config.get('url', '')}"
             try:
                 url = url_template.format(**data)
             except KeyError:
@@ -114,20 +97,6 @@ class URESTAdapter():
             self.close() 
             raise
 
-
-    def make_request(self,url, method, data):
-
-        methods = {
-        'GET': self._get,
-        'POST': self._post
-       # 'PUT': requests.put,
-       # 'DELETE': requests.delete,
-       # 'PATCH': requests.patch
-    }
-        if method.upper() not in methods:
-            raise ValueError(f"Unsupported method: {method}")
-    
-        return methods[method.upper()](url, data)
     
     @property
     def client(self):

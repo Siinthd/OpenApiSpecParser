@@ -1,11 +1,85 @@
-REST2JSON:
-  entity: "post_api_4_1_rs_suggest_bank"
-  OpenAPISpecYAMLFilename: "C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/suggestions.yml"
-  target_path: "C:/Users/kdenis/Documents/Work/OpenApiSpecParser/output/"
-  Token_src: "C:/Users/kdenis/mu_code/keys.json"
-  payload_filename: ""
-  retries: 3
-  timeout: 30
-  Pagination: True
-  Page_param: page
-  Pagesize_param: per_page
+# обязательный: параметры процесса
+# (основные настройки)
+proc:
+# обязательный: конфиг источника
+#   в случае с использованием адаптера -- для адаптера
+#   TODO:IK: контура; резолвим на уровне C&M
+src:
+  # обязательный: наименование источника
+  #   RDBMS: 'схема.таблица' -- так onEtl.db_reader на вход хочет
+  #   rest2json: operation_id (идентификатор нужной операции из спеки)
+  #     согласно стандарту уникален, но по факту заполнен не всегда
+  #     если работаем с палёным сервисом -- пишем что-нибудь,
+  #     и передаём src.conn_params.method и src.conn.params.endpoint_url.
+  name: "getCurrentConditions" # name: 'suggestOutwardclear'
+  # обязательный: тип подключения
+  #   определяет, как мы читаем источник
+  #   в общем случае соответствует onEtl-ному классу -- его в коде превращаем в src_conn_class
+  #   в случае использования адаптера (то есть в непокрываемых onEtl кейсах) -- пишем класс адаптера
+  #     TODO:KE: в идеале адаптеры хотим реализовать через декораторы/плагины onEtl,
+  #       не пока хардкодом можно обойтись
+  conn_type: 'Postgres' # conn_type: 'rest2json'
+  # обязательный: список параметров подключения
+  #   состав списка определяется параметрами класса из proc.src.conn_type 
+  #   в общем случае набор параметров соответствующего onEtl-ного класса
+  #   в случае использования адаптера (то есть в непокрываемых onEtl кейсах) -- то, что на вход хочет адаптер
+  conn_params:
+    # опциональный: количество ретраев и таймаут
+    #   если не указать -- 1 ретрай и какой-нибудь таймаут
+    #   TODO: указать дефолтные значения в env
+    #   TODO:KE,DC,VV: использовать для всех подключений
+    retries: 3
+    timeout: 30  
+
+    # подключение к pg (пример)
+    # (если забираем данные из базюли напрямую)
+    # TODO:KE: нейминг, как в onEtl Postgres
+    host: 'postgres'
+    port: 5432
+    database: 'spark_db'
+    extension: ''
+
+    # rest2json: подключение к RestAPI (пример)
+    # (если используем адаптер, тогда подключение выше не нужно)
+    # опциональный: tcp-порт для работы с сервисом
+    #   по умолчанию 443
+    #port: 443
+    # обязательный: спецификация сервиса
+    # (хотя бы один из двух должен быть указан и заполнен) 
+    #   отсюда берём схемы реплаев,
+    #     + url для запроса, если возможно
+    #     TODO:DC: парсинг схем из $ref  
+    #   опубликована/доступна не всегда,
+    #   потому вместо spec_url можно заэмбедить yaml-спеку в spec_data
+    #     spec_url, если указан и заполнен, имеет приоритет
+    spec_url: 'https://dadata.ru/files/openapi/suggestions.yml'
+    #spec_data: 'C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/suggestions.yml' # заэмбеженный yaml
+    # опциональный: адрес для запроса 
+    #   в спеке может быть перечислено несколько адресов;
+    #   адреса могут быть параметризованы через url.variables;
+    #   если параметр указан и заполнен -- используем для работы этот base_url
+    #      иначе берём первый из списка servers в спеке
+    base_url: "https://suggestions.dadata.ru/suggestions"
+    # опциональный: ep+method для случаев, когда сервис не использует operation_id
+    #   если оба параметра указаны и непустые, то ищем в спеке по ним,
+    #   иначе для поиска используем operation_id из proc.src.name,
+    #     TODO:DC: проверять/перебирать поддерживаемые методы в процессе поиска (GET,POST)
+    endpoint_url: "/api/4_1/rs/suggest/bank"
+    method: 'post'
+    ###ДЛЯ ТЕСТИРОВАНИЯ
+    Token_src: "C:/Users/kdenis/mu_code/keys.json"
+    # TODO:DC: с пейджингом нужно будет разобраться, но это не первый приоритет
+    # опциональный: перебор страниц на сервере
+    #   игнорим, если параметра нет,
+    #   либо стоит pagination.enabled = false
+    pagination:
+      # обязательный: включение
+      enabled: true
+      # обязательный: название параметра с номером страницы
+      page_param: 'page'
+      # обязательный: название параметра с размером страницы
+      pagesize_param: 'per_page'
+      # обязательный: запрашиваемый размер страницы
+      pagesize_val: 100
+      # обязательный: название параметра с общим числом записей
+      pagecnt_param: "total_results"

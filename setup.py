@@ -7,11 +7,11 @@ def readme():
 '''
 
 setup(
-    name='OpenAPISpecParser',
-    version='0.0.1',
+    name='REST2JSON',
+    version='0.0.2',
     author='Denis Kodolich',
     author_email='d.kodolich@concept-software.ru',
-    description='Парсер OpenAPI спецификаций и адаптер для REST API запросов',
+    description='metadriven-адаптер для RESTAPI запросов',
     
     # ВАЖНО: ищем пакеты в папке src
     packages=find_packages(where='src'),
@@ -19,7 +19,7 @@ setup(
     
     # Явно указываем, что включать
     package_data={
-        'OpenAPISpecParser': ['*/*.py', '*.py'],
+        'REST2JSON': ['*/*.py', '*.py'],
     },
     
     install_requires=[
