@@ -1,8 +1,6 @@
-import json
 import httpx
 from typing import Optional, Any
 import copy
-from .utils.loggerdec import log_this
 
 class ClientBase:
     """Base class for API client"""
@@ -10,22 +8,21 @@ class ClientBase:
     def __init__(
         self, 
         headers: dict,
-        secret: Optional[dict] = None,
+        extra_headers: Optional[dict] = None,
         timeout: int = 3,
     ):
         self.headers = headers
         self.headers["Accept"] = "application/json"
-        if secret:
-            for key,value in secret.items():
+        if extra_headers:
+            for key,value in extra_headers.items():
                 self.headers[key] = value
-
         self._client = httpx.Client(headers=headers, timeout=timeout)
 
-    def __aenter__(self) -> "ClientBase":
+    def __enter__(self) -> "ClientBase":
         return self
 
-    def __aexit__(self, exc_type, exc_value, traceback):
-        return self.close()
+    def __exit__(self):
+        self.close()
 
     def close(self):
         """Close network connections"""
@@ -67,8 +64,6 @@ class URESTAdapter():
         if self.token:
             if isinstance(self.token, dict):
                 headers.update(self.token)  
-            elif isinstance(self.token, str):
-                headers['Authorization'] = f"Bearer {self.token}"  
         
         return headers    
 
@@ -77,7 +72,8 @@ class URESTAdapter():
         data = data or {}  
         
         try:
-            url_template = f"{self.base_url}{self.config.get('url', '')}"
+            base = self.base_url or ''
+            url_template = f"{base}{self.config.get('url', '')}"
             try:
                 url = url_template.format(**data)
             except KeyError:
@@ -93,7 +89,7 @@ class URESTAdapter():
                 raise ValueError(f"Unsupported method: {method}")
                 
         except Exception as e:
-            print(f"Error in execute: {e}")
+            #print(f"Error in execute: {e}")
             self.close() 
             raise
 

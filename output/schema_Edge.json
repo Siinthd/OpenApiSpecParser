@@ -1,0 +1,392 @@
+{
+ "type": "struct",
+ "fields": [
+  {
+   "name": "data",
+   "nullable": false,
+   "type": {
+    "type": "struct",
+    "fields": [
+     {
+      "name": "attributes",
+      "nullable": true,
+      "type": {
+       "type": "struct",
+       "fields": [
+        {
+         "name": "blocked_at",
+         "nullable": true,
+         "type": "string",
+         "metadata": {}
+        },
+        {
+         "name": "created_at",
+         "nullable": true,
+         "type": "string",
+         "metadata": {}
+        },
+        {
+         "name": "description",
+         "nullable": true,
+         "type": "string",
+         "metadata": {}
+        },
+        {
+         "name": "discarded_at",
+         "nullable": true,
+         "type": "string",
+         "metadata": {}
+        },
+        {
+         "name": "email",
+         "nullable": true,
+         "type": "string",
+         "metadata": {}
+        },
+        {
+         "name": "name",
+         "nullable": true,
+         "type": "string",
+         "metadata": {}
+        },
+        {
+         "name": "phone_number",
+         "nullable": true,
+         "type": "string",
+         "metadata": {}
+        },
+        {
+         "name": "updated_at",
+         "nullable": true,
+         "type": "string",
+         "metadata": {}
+        }
+       ]
+      },
+      "metadata": {}
+     },
+     {
+      "name": "id",
+      "nullable": false,
+      "type": "string",
+      "metadata": {}
+     },
+     {
+      "name": "links",
+      "nullable": false,
+      "type": {
+       "type": "struct",
+       "fields": [
+        {
+         "name": "self",
+         "nullable": false,
+         "type": "string",
+         "metadata": {}
+        }
+       ]
+      },
+      "metadata": {}
+     },
+     {
+      "name": "relationships",
+      "nullable": true,
+      "type": {
+       "type": "struct",
+       "fields": [
+        {
+         "name": "address",
+         "nullable": true,
+         "type": {
+          "type": "struct",
+          "fields": [
+           {
+            "name": "data",
+            "nullable": true,
+            "type": {
+             "type": "struct",
+             "fields": [
+              {
+               "name": "id",
+               "nullable": false,
+               "type": "string",
+               "metadata": {}
+              },
+              {
+               "name": "type",
+               "nullable": false,
+               "type": "string",
+               "metadata": {}
+              }
+             ]
+            },
+            "metadata": {}
+           }
+          ]
+         },
+         "metadata": {}
+        },
+        {
+         "name": "charges",
+         "nullable": true,
+         "type": {
+          "type": "struct",
+          "fields": [
+           {
+            "name": "data",
+            "nullable": true,
+            "type": {
+             "type": "array",
+             "containsNull": false,
+             "elementType": {
+              "type": "struct",
+              "fields": [
+               {
+                "name": "id",
+                "nullable": false,
+                "type": "string",
+                "metadata": {}
+               },
+               {
+                "name": "type",
+                "nullable": false,
+                "type": "string",
+                "metadata": {}
+               }
+              ]
+             }
+            },
+            "metadata": {}
+           }
+          ]
+         },
+         "metadata": {}
+        },
+        {
+         "name": "merchant_account",
+         "nullable": true,
+         "type": {
+          "type": "struct",
+          "fields": [
+           {
+            "name": "data",
+            "nullable": true,
+            "type": {
+             "type": "struct",
+             "fields": [
+              {
+               "name": "id",
+               "nullable": false,
+               "type": "string",
+               "metadata": {}
+              },
+              {
+               "name": "type",
+               "nullable": false,
+               "type": "string",
+               "metadata": {}
+              }
+             ]
+            },
+            "metadata": {}
+           }
+          ]
+         },
+         "metadata": {}
+        },
+        {
+         "name": "payment_methods",
+         "nullable": true,
+         "type": {
+          "type": "struct",
+          "fields": [
+           {
+            "name": "data",
+            "nullable": true,
+            "type": {
+             "type": "array",
+             "containsNull": false,
+             "elementType": {
+              "type": "struct",
+              "fields": [
+               {
+                "name": "id",
+                "nullable": false,
+                "type": "string",
+                "metadata": {}
+               },
+               {
+                "name": "type",
+                "nullable": false,
+                "type": "string",
+                "metadata": {}
+               }
+              ]
+             }
+            },
+            "metadata": {}
+           }
+          ]
+         },
+         "metadata": {}
+        },
+        {
+         "name": "published_events",
+         "nullable": true,
+         "type": {
+          "type": "struct",
+          "fields": [
+           {
+            "name": "data",
+            "nullable": true,
+            "type": {
+             "type": "array",
+             "containsNull": false,
+             "elementType": {
+              "type": "struct",
+              "fields": [
+               {
+                "name": "id",
+                "nullable": false,
+                "type": "string",
+                "metadata": {}
+               },
+               {
+                "name": "type",
+                "nullable": false,
+                "type": "string",
+                "metadata": {}
+               }
+              ]
+             }
+            },
+            "metadata": {}
+           }
+          ]
+         },
+         "metadata": {}
+        },
+        {
+         "name": "subscriptions",
+         "nullable": true,
+         "type": {
+          "type": "struct",
+          "fields": [
+           {
+            "name": "data",
+            "nullable": true,
+            "type": {
+             "type": "array",
+             "containsNull": false,
+             "elementType": {
+              "type": "struct",
+              "fields": [
+               {
+                "name": "id",
+                "nullable": false,
+                "type": "string",
+                "metadata": {}
+               },
+               {
+                "name": "type",
+                "nullable": false,
+                "type": "string",
+                "metadata": {}
+               }
+              ]
+             }
+            },
+            "metadata": {}
+           }
+          ]
+         },
+         "metadata": {}
+        }
+       ]
+      },
+      "metadata": {}
+     },
+     {
+      "name": "type",
+      "nullable": false,
+      "type": "string",
+      "metadata": {}
+     }
+    ]
+   },
+   "metadata": {}
+  },
+  {
+   "name": "included",
+   "nullable": true,
+   "type": {
+    "type": "array",
+    "containsNull": false,
+    "elementType": {
+     "type": "struct",
+     "fields": [
+      {
+       "name": "code",
+       "nullable": true,
+       "type": "string",
+       "metadata": {}
+      },
+      {
+       "name": "created_at",
+       "nullable": true,
+       "type": "string",
+       "metadata": {}
+      },
+      {
+       "name": "occurred_at",
+       "nullable": true,
+       "type": "string",
+       "metadata": {}
+      },
+      {
+       "name": "payload",
+       "nullable": true,
+       "type": {
+        "type": "struct",
+        "fields": []
+       },
+       "metadata": {}
+      },
+      {
+       "name": "updated_at",
+       "nullable": true,
+       "type": "string",
+       "metadata": {}
+      }
+     ]
+    }
+   },
+   "metadata": {}
+  },
+  {
+   "name": "meta",
+   "nullable": true,
+   "type": {
+    "type": "struct",
+    "fields": [
+     {
+      "name": "authors",
+      "nullable": false,
+      "type": {
+       "type": "array",
+       "containsNull": false,
+       "elementType": "string"
+      },
+      "metadata": {}
+     },
+     {
+      "name": "copyright",
+      "nullable": false,
+      "type": "string",
+      "metadata": {}
+     }
+    ]
+   },
+   "metadata": {}
+  }
+ ]
+}

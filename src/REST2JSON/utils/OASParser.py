@@ -1,7 +1,7 @@
 import re
-from .loggerdec import log_this
+from .utils import OpenAPIToSparkConverter
 import copy
-
+from typing import Any
 
 
 # Теперь мы не парсим всю спеку - мы перебираем /path на предмет OperationID
@@ -21,16 +21,25 @@ class OASParser:
         #Версия словаря для REST2JSON
         self.request = self._transform_spec_to_requests(self._resolve_refs_in_operation(copy.deepcopy(self.post),self.extract_schemas_with_payloads(copy.deepcopy(self.spec))))
         #Версия словаря для OneETL
-        self.response_map = self._resolve_refs_in_operation(copy.deepcopy(self.post),self.extract_schemas(copy.deepcopy(self.spec)))
+        self.response_map = self._resolve_refs_in_operation(copy.deepcopy(self.post),self.extract_schemas(copy.deepcopy(self.spec))).get('response',None)
+        self.response_sparkdf = self._convert_schema_to_sprkfrm(copy.deepcopy(self.response_map))
         
 
 
     ##_parse_specification теперь работает с уровнем ниже
     #Я ищу по endpoint, если endpoint пустой,то пытаюсь через OperationID
     #Поскольку операции разнородные - нужно придумать метод обхода сначала 
+
+    def getStructTypeSchema(self):
+        return self.response_sparkdf
+    
     def _findendpointbypath(self,spec_dict: dict,key) -> dict:
         endpoints = spec_dict.get('paths', {})
-        return endpoints.get(key,None)
+        endpoint =  endpoints.get(key,None)
+        for key,value in endpoint.items():
+            if key == self.target_method:
+                return endpoint
+        return None
     
     def _findendpointbyOpId(self,spec_dict: dict,key) -> dict:
         for path, methods in spec_dict.get('paths', {}).items():
@@ -78,8 +87,6 @@ class OASParser:
                     self._resolve_refs_in_operation(item, ref_dict)
         
         return operation_spec
-
-
 
     def __getbaseurl(self, spec_dict: dict):
         '''
@@ -148,9 +155,8 @@ class OASParser:
                     if method_responses is not None:
                         # Добавить схему ответа
                         response = method_details.get('responses')
-                        if response is not None:
-                             endpoint_data['response'] = response
-
+                        if response is not None:                    
+                             endpoint_data['response'] = self.__find_response_schema(response)
                     if method_security is not None:
                         # Используем security из метода - выкинуть
                         endpoint_data['security'] = method_security
@@ -180,9 +186,77 @@ class OASParser:
                     endpoint_data['path'] = path
                     result.update(endpoint_data)
             return result
+    
+    def __find_response_schema(self, obj: Any, depth: int = 0, max_depth: int = 15) -> dict | str | None:
+        """
+        Рекурсивно ищет "наиболее вероятную" схему ответа.
+        Возвращает:
+        - dict — если нашёл inline-схему
+        - str  — если нашёл $ref (строку вида "#/components/schemas/...")
+        - None — если ничего не нашёл
+        """
+        if depth > max_depth:
+            return None
 
-    
-    
+        if not isinstance(obj, (dict, list)):
+            return None
+
+        # schema или $ref на текущем уровне
+        if isinstance(obj, dict):
+            if "$ref" in obj:
+                ref = obj["$ref"]
+                if isinstance(ref, str) and ref.startswith("#/"):
+                    return ref  # возвращаем ref как есть — дальше можно резолвить
+
+            if "schema" in obj and isinstance(obj["schema"], (dict, str)):
+                return obj["schema"]
+
+        #  Типичные пути в OpenAPI
+        common_paths = [
+            ("content", "application/json", "schema"),
+            ("content", "application/json", "$ref"),
+            ("content", "application/vnd.api+json", "schema"),
+            ("schema",),
+            ("$ref",),
+            ("responses", "200", "content", "application/json", "schema"),
+            ("responses", "200", "schema"),
+        ]
+
+        for path in common_paths:
+            current = obj
+            try:
+                for key in path:
+                    current = current[key]
+                if isinstance(current, (dict, str)):
+                    return current
+            except (KeyError, TypeError):
+                continue
+
+        #  oneOf / allOf / anyOf 
+        if isinstance(obj, dict):
+            for combinator in ["oneOf", "allOf", "anyOf"]:
+                if combinator in obj and isinstance(obj[combinator], list):
+                    for variant in obj[combinator]:
+                        if isinstance(variant, dict):
+                            found = self.__find_response_schema(variant, depth + 1, max_depth)
+                            if found is not None:
+                                return found  # возвращаем первый найденный рабочий вариант
+
+        #  Рекурсия по всем вложенным словарям и спискам
+        if isinstance(obj, dict):
+            for v in obj.values():
+                found = self.__find_response_schema(v, depth + 1, max_depth)
+                if found is not None:
+                    return found
+
+        elif isinstance(obj, list):
+            for item in obj:
+                found = self.__find_response_schema(item, depth + 1, max_depth)
+                if found is not None:
+                    return found
+
+        return None
+
     def _transform_spec_to_requests(self, spec: dict) -> dict:
         request = {}
         try:
@@ -399,8 +473,8 @@ class OASParser:
                 "method": method,
                 "url": url,
                 "headers": {
-                    "Content-Type": spec.get("content", "application/json"),
-                    "Accept": "application/json"
+                    "Content-Type": spec.get("content", ""),#application/json
+                    "Accept": ""#application/json
                 },
                 "auth_types": spec.get("security", None),
                 "variables": sorted(list(all_variables)) if all_variables else [],
@@ -416,19 +490,8 @@ class OASParser:
         
         return request
 
-    def get_response(self,ID:str = None): 
-
-        response = {}
-
-        if ID:
-            entity = self.response_map.get(ID)
-            if not entity:
-                raise ValueError(f"Endpoint '{entity}' не найден в конфигурации")
-            response = entity.get('response',{})
-        else:
-            for key,entity in  self.response_map.items():
-                response[key] = entity.get('response',{})
-        return response
+    def get_response_map(self,ID:str = None): 
+        return self.response_map
         
     def _get_request_config(self):
         return self.request
@@ -695,4 +758,7 @@ class OASParser:
         
         return resolved_payloads
 
-  
+    def _convert_schema_to_sprkfrm(self,response_map):
+        spark_json_schema = OpenAPIToSparkConverter.convert(response_map)
+        return spark_json_schema
+        

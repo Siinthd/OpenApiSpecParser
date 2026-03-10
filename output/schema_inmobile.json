@@ -1,0 +1,37 @@
+{
+ "type": "struct",
+ "fields": [
+  {
+   "name": "entries",
+   "nullable": true,
+   "type": {
+    "type": "array",
+    "containsNull": false,
+    "elementType": {
+     "type": "struct",
+     "fields": [
+      {
+       "name": "created",
+       "nullable": true,
+       "type": "string",
+       "metadata": {}
+      },
+      {
+       "name": "id",
+       "nullable": true,
+       "type": "string",
+       "metadata": {}
+      },
+      {
+       "name": "name",
+       "nullable": true,
+       "type": "string",
+       "metadata": {}
+      }
+     ]
+    }
+   },
+   "metadata": {}
+  }
+ ]
+}

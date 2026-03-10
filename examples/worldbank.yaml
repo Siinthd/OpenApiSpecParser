@@ -1,0 +1,158 @@
+openapi: 3.0.1
+info:
+  title: World Bank Documents & Reports API (v3)
+  description: API для поиска и получения публичных документов Всемирного банка. Основано на работающем эндпоинте v3.
+  version: 3.0.0
+  contact:
+    name: World Bank Group
+    url: https://documents.worldbank.org/en/publication/documents-reports/api
+servers:
+  - url: https://search.worldbank.org/api/v3
+    description: Рабочий сервер API v3
+paths:
+  /wds:
+    get:
+      summary: Поиск документов
+      description: Возвращает список документов, соответствующих параметрам запроса.
+      parameters:
+        - name: format
+          in: query
+          required: true
+          description: Формат ответа.
+          schema:
+            type: string
+            enum: [json, xml]
+            default: json
+        - name: rows
+          in: query
+          description: Количество записей на странице.
+          schema:
+            type: integer
+            default: 10
+        - name: os
+          in: query
+          description: Начальная позиция для выборки (сдвиг).
+          schema:
+            type: integer
+            default: 0
+        - name: qterm
+          in: query
+          description: Поисковый запрос по умолчанию (ищет по многим полям).
+          schema:
+            type: string
+        - name: display_title
+          in: query
+          description: Фильтр по точному названию документа.
+          schema:
+            type: string
+        - name: docty
+          in: query
+          description: Фильтр по типу документа.
+          schema:
+            type: string
+        - name: count
+          in: query
+          description: Фильтр по стране.
+          schema:
+            type: string
+        - name: lang
+          in: query
+          description: Фильтр по языку.
+          schema:
+            type: string
+        - name: repnb
+          in: query
+          description: Фильтр по номеру отчета.
+          schema:
+            type: string
+        - name: strdate
+          in: query
+          description: Начальная дата (включительно). Формат YYYY-MM-DD.
+          schema:
+            type: string
+            format: date
+        - name: enddate
+          in: query
+          description: Конечная дата (включительно). Формат YYYY-MM-DD.
+          schema:
+            type: string
+            format: date
+        - name: srt
+          in: query
+          description: Поле для сортировки (например, docdt).
+          schema:
+            type: string
+        - name: order
+          in: query
+          description: Направление сортировки.
+          schema:
+            type: string
+            enum: [asc, desc]
+        - name: fl
+          in: query
+          description: Список полей для возврата (через запятую).
+          schema:
+            type: string
+            example: "display_title,docdt,pdfurl"
+      responses:
+        '200':
+          description: Успешный ответ.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: integer
+                    description: Запрошенное количество строк.
+                  os:
+                    type: integer
+                    description: Запрошенный сдвиг.
+                  total:
+                    type: integer
+                    description: Общее количество найденных документов.
+                  documents:
+                    type: object
+                    description: Объект, где ключи — ID документов.
+                    additionalProperties:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        display_title:
+                          type: string
+                        docty:
+                          type: string
+                        docdt:
+                          type: string
+                          format: date-time
+                        count:
+                          type: string
+                        lang:
+                          type: string
+                        pdfurl:
+                          type: string
+                        url:
+                          type: string
+                        repnb:
+                          type: string
+                        abstracts:
+                          type: object
+                          properties:
+                            cdata!:
+                              type: string
+                        authors:
+                          type: object
+                          additionalProperties:
+                            type: object
+                            properties:
+                              author:
+                                type: string
+                        # ... могут быть и другие поля
+                  facets:
+                    type: object
+                    description: Фасетные агрегации.
+        '400':
+          description: Неверный запрос.
+        '500':
+          description: Внутренняя ошибка сервера.

@@ -2,6 +2,7 @@ from pprint import pprint
 import json
 from src.REST2JSON.Rest2JSON import REST2JSON
 from src.REST2JSON.utils.OASParser import OASParser
+from src.REST2JSON.utils.utils import has_data
 
 
 if __name__ == "__main__":
@@ -30,13 +31,18 @@ if __name__ == "__main__":
 
 
     '''
+    #payload =  {'display_title': 'Moscow','format': 'json',}
+    #payload =  {'q': 'Pskov'}
+    #payload =  {'market': 'binance','instrument': 'BTC-USDT-VANILLA-PERPETUAL','limit': '100'}
+    
+    #conf_WorldBank
+    #config_newsApi
 
-    config_file = 'C:/Users/kdenis/Documents/Work/OpenApiSpecParser/src/config.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/OpenApiSpecParser/configs/config.yaml'
     from omegaconf import OmegaConf
 
 
     config = OmegaConf.load(config_file)
-    config.get
     new_config = OmegaConf.create({
         "name": OmegaConf.select(config, "src.name", default=None),
         "Token_src": OmegaConf.select(config, "src.conn_params.Token_src", default=None),
@@ -44,7 +50,8 @@ if __name__ == "__main__":
         "method": OmegaConf.select(config, "src.conn_params.method", default=None),
         "timeout": OmegaConf.select(config, "src.conn_params.timeout", default=None),
         "retries": OmegaConf.select(config, "src.conn_params.retries", default=None),
-        "pagination": OmegaConf.select(config, "src.conn_params.pagination", default=None),
+        "pagination": OmegaConf.select(config, "src.conn_params.pagination.enabled", default=None),
+        "page_param" : OmegaConf.select(config, "src.conn_params.pagination.page_param", default=None),
         "spec_url": OmegaConf.select(config, "src.conn_params.spec_url", default=None),
         "spec_data": OmegaConf.select(config, "src.conn_params.spec_data", default=None),
         "base_url": OmegaConf.select(config, "src.conn_params.base_url", default=None),
@@ -52,8 +59,49 @@ if __name__ == "__main__":
         })
 
     rest = REST2JSON(new_config)
-    import json
-    with open('schema.json','w',encoding='Utf-8') as f:
-        json.dump(rest.get_response(payload),f,indent=1)
 
+    with rest as requesting:
+        response = []
+        for pay in payload:
+            zapros = {'query':pay}
+            response.append(requesting.get_response(zapros))
+
+
+    import json
+    with open('response.json','w',encoding='Utf-8') as f:
+        json.dump(response,f,indent=1)
+
+    with open('schema_coindesc.json','w',encoding='Utf-8') as f:
+        json.dump(rest.get_StructTypeFormatSchema(),f,indent=1)
+
+    '''
+    import yaml
+    with open('C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/inmobile.yaml', 'r', encoding='utf-8') as f:
+        content = f.read()
+        loaded_spec = yaml.safe_load(content)
+
+        sch_pars = OASParser(OpName='Lists_GetAllLists',loaded_spec=loaded_spec)
+
+        with open('schema_inmobile.json','w',encoding='Utf-8') as f:
+            json.dump(sch_pars.response_sparkdf,f,indent=1)
+    '''
+
+    #from src.REST2JSON.utils.OASParser import OASParser,compare_shapes,build_shape,validate_batch_structurally
+
+
+
+   # schema_shape = build_shape(response)  
+    #pprint(schema_shape)
+   # response_shape = build_shape(rest.entity_schema)
+   # pprint(response_shape)
+
+
+    # При каждом полученном батче
+    #analysis = validate_batch_structurally(
+    #    batch=response,          # List[dict]
+    #    schema_shape=response_shape,
+    #    debug=True
+    #)
+
+    #pprint(analysis)
 

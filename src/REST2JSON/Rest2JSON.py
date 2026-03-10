@@ -3,6 +3,7 @@
 #на вход получает конфигурацию - разбивает ее,выбирает стратегию,по возможности - внешняя оценка результата для контроля загрузки
 from omegaconf import DictConfig, OmegaConf
 from .utils.OASParser import OASParser
+from .utils.utils import has_data
 from .URESTAdapter import URESTAdapter
 
 class ParserAdapter(OASParser):
@@ -19,11 +20,9 @@ class ParserAdapter(OASParser):
         return self._parser
 
 class ClientAdapter(URESTAdapter):
-    def __init__(self, entity,secret,base_url):
-        super().__init__(entity, secret,base_url)
+    def __init__(self, entity,extra_headers,base_url):
+        super().__init__(entity, extra_headers,base_url)
     
-    def get_client(self):
-        return self
     
 
     # TODO 
@@ -37,20 +36,31 @@ class REST2JSON:
                 Omegaconfig_stream: DictConfig = None):
         #Загружаем объект DictConfig
         self.Omegaconfig_stream = Omegaconfig_stream
-        self.OpenAPISpecYAMLFilename,self.OpenAPISpecYAMLURL,self.TokensFilename,self.OpName,self.endpoint_url,self.method = self.__load_configuration(Omegaconfig_stream)
+        self.OpenAPISpecYAMLFilename,self.OpenAPISpecYAMLURL,self.TokensFilename,self.OpName,self.endpoint_url,self.method,self.paginate,self.page_param = self.__load_configuration(Omegaconfig_stream)
         #Получаем спецификацию
         self.spec = self._load_specification_(self.OpenAPISpecYAMLFilename,self.OpenAPISpecYAMLURL)
         #Загрузка адаптера
+
         self.parser_adapter = ParserAdapter(self.OpName,self.endpoint_url,self.method,self.spec).get_parser()
         self.entity_config = self.parser_adapter.request
+        
         self.base_url = self.__getbase_url(Omegaconfig_stream,self.entity_config)
         self.Tokens = self.Tokens_MOCK(self.TokensFilename,self.base_url)
         self.client_adapter = ClientAdapter(self.entity_config,self.Tokens,self.base_url)
-        self.parser = None
-        self.data_loader = None
-        self.run()
+        self._in_context = False  # доп флаг
 
-    
+    def __enter__(self):
+        if self._in_context:
+            raise RuntimeError("Объект уже используется.")
+        self.client_adapter.__enter__()
+        self._in_context = True
+        return self
+
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._in_context = False
+        self.client_adapter.__exit__(exc_type, exc_val, exc_tb)
+        return False
 
     def _load_specification_(self,filename,url) ->dict:
         import json,yaml
@@ -72,11 +82,12 @@ class REST2JSON:
         elif url:
             return self._get_specfromrequest(url)
 
+
     def _get_specfromrequest(self,url):
         import requests,yaml
         try:
             response = requests.get(url)
-            response.raise_for_status()  # Проверяем успешность запроса
+            response.raise_for_status() 
             response.encoding = response.apparent_encoding or 'utf-8'
             data = yaml.safe_load(response.text)
             return data
@@ -85,8 +96,6 @@ class REST2JSON:
         except yaml.YAMLError as e:
             return None
         
-
-
     def __getbase_url(self,config_input,entity_config):
         base_url = entity_config.get("base_url",None)
         if OmegaConf.select(config_input, "base_url", default=None):
@@ -96,33 +105,26 @@ class REST2JSON:
         else:
             return ''
 
-    def parse_config(self):
-        # реализация
-        pass
     def __load_configuration(self,config_input):
-
         if isinstance(config_input, DictConfig):
-            return config_input.spec_data,config_input.spec_url,config_input.Token_src,config_input.name,config_input.endpoint_url,config_input.method
+            return config_input.spec_data,config_input.spec_url,config_input.Token_src,config_input.name,config_input.endpoint_url,config_input.method,config_input.pagination,config_input.page_param
         else:
+            return None    
+    
+    def get_StructTypeFormatSchema(self):
+        if self.parser_adapter is None:
             return None
+        return self.parser_adapter.getStructTypeSchema()
     
-    def run(self):
-        self.RESTClient = self.client_adapter.get_client()
-        
+    def get_JSONTypeschema(self):
+        if self.parser_adapter is None:
+            return None
+        return self.parser_adapter.get_response_map()
     
-    def get_schema(self):
-        if self.parser is None:
-            self.parser = self.parser_adapter.get_parser()
-        return self.parser.get_response()
-    
-    #TODO
-    #парсинг значений с файла
-    #создание итератора по страницам
     def _prepare_payload(self, data):
         payload = []
-        pagination = False
         required = self.entity_config.get('required',[])
-        variables = self.entity_config.get('variables',[])
+        #variables = self.entity_config.get('variables',[])
         datatype =  type(data)
         if datatype == dict:
             entity_variables = self.entity_config.get('variables',None)
@@ -140,156 +142,129 @@ class REST2JSON:
                     print('Требуется явно указать параметр(ы) запроса')
         elif data:
             payload = [{required[0]: value} for value in [data]]
+        else:
+            return data
+
         return payload
         
-    def _is_valid_response(self, response):
+    def _is_valid_response(self, response=None,entity_schema=None,debug=True):
+
         """
         Проверка валидности ответа от API
+        добавить оценку если это массив структур,иначе результат ложноположительный
+
+        стратегия: заинферить схему из ответа и столкнуть с схемой ответа из специ,похожесть
+        еще пандас
+        Отложено: всегда обрывает пагинацию
         """
-        if response is None:
-            return False
+        return False 
+    
+    def _direct(self, data):
+        """
+        Прямой запрос к API используя _get/_post
+        НЕ РАБОТАЕТ СО СПИСКАМИ. ДЛЯ ЭТОГО ЕСТЬ EXECUTE!
+        """
+        try:
+            if isinstance(data,list):
+                raise ValueError('Неккоректный тип данных.Метод не работает со списками')
+        except Exception as e:
+            return None
         
-        if isinstance(response, dict):
-            if not response:
-                return False
+        try:
+            # Определяем метод из конфига
+            method = self.client_adapter.config.get('method', 'GET').upper()
             
-            for key, value in response.items():
-                if value not in (None, [], {}, '', 'null'):
-                    return True
-            return False
-        
-        elif isinstance(response, list):
-            return len(response) > 0
-        
-        elif isinstance(response, str):
-            return bool(response.strip())
-        
+            # Формируем URL
+            url_template = f"{self.base_url}{self.client_adapter.config.get('url', '')}"
+            if data:
+                try:
+                    url = url_template.format(**data)
+                except KeyError:
+                    url = url_template
+            else:
+                url = url_template
+
+            http_client = self.client_adapter.client
+            
+            # Выполняем прямой запрос
+            if method == 'GET':
+                response = http_client._get(url, data)
+            else:  # POST
+                response = http_client._post(url, data)
+            
+            # Валидируем ответ
+            if self._is_valid_response(response) or True:
+                return response
+            else:
+                return None       
+        except Exception as e:
+            return None
+
+    def get_response(self, data=None):
+        if self._in_context:
+            return self._direct(data)
         else:
-            return response is not None
-        
-
-
-
-
- ##############################
-
-
-
-
-
-
-
-
-
-
-        
-    def get_response(self,data):
-        results = []
-        with self.RESTClient as client:
             payload = self._prepare_payload(data)
-            if not payload:
-                try:
-                    response = client.execute()  # Вызов без данных
-                    if self._is_valid_response(response):
-                        results.append(response)
-                        return results
-                    return []
-                except Exception as e:
-                    print(f"Error processing empty payload: {e}")
-                    return []
-
-            #разделить на два процесса в зависимости от пагинации
+            self.__enter__()
+            try:
+                results = self._execute(payload)
+            finally:
+                self.__exit__(None, None, None)
+    
+        return results
+        
+    def _execute(self,data):
+        results = []
+        #разделить на два процесса в зависимости от пагинации
+        if self.paginate:
+            for item in data:
+                page = 1   
+                while True:
+                    try:
+                        print(f'proccess page {page}')
+                        item[self.page_param] = page
+                        response = self.client_adapter.execute(item)
+                        if self._is_valid_response(response = response,debug=True): #вынести в контроль загрузки
+                            results.append(response)
+                        else:
+                            break
+                        page += 1
+                    except Exception as e:
+                        print(f"Error processing {item}: {e}")
+                        break   
+        elif not data:
+            try:
+                response = self.client_adapter.execute()  # Вызов без данных
+                if self._is_valid_response(response = response,debug=True):
+                    results.append(response)
+                    return results
+                return []
+            except Exception as e:
+                print(f"Error processing empty payload: {e}")
+                return []
             
-            for item in payload:
+        else:
+            for item in data:
                 try:
-                    response = client.execute(item)
-                    if self._is_valid_response(response): #вынести в контроль загрузки
-                        results.append(response)
+                    response = self.client_adapter.execute(item)
+                    if self._is_valid_response(response = response,debug=True) or True: #вынести в контроль загрузки
+                         results.append(response)
                 except Exception as e:
                     print(f"Error processing {item}: {e}")        
         return results
-    
 
 
-
-
-##############################
-
-    def get_response_(self, data):
-        """
-        Получение ответа от API с поддержкой:
-        + 1 Пустого вызова (без данных)
-        + 2 Пакетной обработки
-         3 Пагинации
-         Контроля загрузки ? в конце каждой итерации,если предусмотрена пагинация
-
-         Собрать под единый шаблон
-        """
-        with self.RESTClient as client:
-            payload = self._prepare_payload(data)
-            
-            # СЛУЧАЙ 1: Пустой payload -> одиночный вызов без данных
-            if not payload:
-                return self._execute_single_request(client, None)
-            
-            # Проверяем, нужна ли пагинация
-            if self._requires_pagination():
-                return self._execute_with_pagination(client, payload)
-            
-            # СЛУЧАЙ 2: Есть данные -> пакетная обработка
-            return self._execute_batch_requests(client, payload)
-
-
-
-
-
-
-
-    
     def Tokens_MOCK(self,filename,base_url):
         import json
             #Mock сервера ключей
         with open(filename, 'r', encoding='utf-8') as f:
             tokens = json.load(f)
-        token = tokens.get(base_url)
+        token = tokens.get(base_url,None)
         return token
     
-    def _paginate(self):
-        pass
-
     def close(self):
-        if self._client:
-            self._client.close()
-            self._client = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.close()
-'''
-    TODO
-->get_response_schema_as_json()
-->get_response_schema_as_xsd()
-->get_response_as_json()
-->get_response_as_xml()
-
-
-
-input:
-    #Если есть конфигурационный файл
-    conf_file(str)
-    conf_file_as_dict(dict)
-    #если этого файла нет,но мы указываем их явно хардкодом
-    entity(operation_name)
-    OpenAPISpecYAMLFilename
-    target_path
-    Token_dict
-    retry
-    timeouts
-
-    Pagination_param
-    controlAnswerParam
-
-'''
+        if self._in_context:
+            self._in_context = False
+            self.client_adapter.close()
+            
 
