@@ -139,7 +139,7 @@ config = DictConfig({
 ### Подготовка payload
 required должен быть определен в OpenAPI-спецификации и быть единственным обязательным параметром:
 
-#### Пример 
+#### Пример requited в спецификации
 
 ```yaml
 requestBody:
@@ -220,6 +220,8 @@ data = [123, 456, 789]
 # Одиночное значение (если required = ["query"])
 data = 123
 # [{"query": 123}]
+data = {"query": 123,"status":["ACTIVE"],"type":["BANK","BANK_BRANCH","OTHER"]}
+#Явное указание дополнительных фильтров
 ```
 
 ### TODO
