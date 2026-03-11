@@ -159,44 +159,47 @@ class REST2JSON:
         """
         return False 
     
-    def _direct(self, data):
+    def _direct(self, payload):
         """
         Прямой запрос к API используя _get/_post
         НЕ РАБОТАЕТ СО СПИСКАМИ. ДЛЯ ЭТОГО ЕСТЬ EXECUTE!
         """
-        try:
-            if isinstance(data,list):
-                raise ValueError('Неккоректный тип данных.Метод не работает со списками')
-        except Exception as e:
-            return None
+        got_list = False
+        result = []
+        if isinstance(payload,list):
+            data_list = self._prepare_payload(payload)
+            got_list = True
+        else:
+            data_list = self._prepare_payload(payload)
         
         try:
+            for data in data_list:
             # Определяем метод из конфига
-            method = self.client_adapter.config.get('method', 'GET').upper()
-            
-            # Формируем URL
-            url_template = f"{self.base_url}{self.client_adapter.config.get('url', '')}"
-            if data:
-                try:
-                    url = url_template.format(**data)
-                except KeyError:
+                method = self.client_adapter.config.get('method', 'GET').upper()
+                
+                # Формируем URL
+                url_template = f"{self.base_url}{self.client_adapter.config.get('url', '')}"
+                if data:
+                    try:
+                        url = url_template.format(**data)
+                    except KeyError:
+                        url = url_template
+                else:
                     url = url_template
-            else:
-                url = url_template
 
-            http_client = self.client_adapter.client
-            
-            # Выполняем прямой запрос
-            if method == 'GET':
-                response = http_client._get(url, data)
-            else:  # POST
-                response = http_client._post(url, data)
-            
-            # Валидируем ответ
-            if self._is_valid_response(response) or True:
-                return response
-            else:
-                return None       
+                http_client = self.client_adapter.client
+                
+                # Выполняем прямой запрос
+                if method == 'GET':
+                    response = http_client._get(url, data)
+                else:  # POST
+                    response = http_client._post(url, data)
+                
+                # Валидируем ответ
+                if not got_list:
+                    return response
+                result.append(response)
+            return result
         except Exception as e:
             return None
 
@@ -216,6 +219,9 @@ class REST2JSON:
     def _execute(self,data):
         results = []
         #разделить на два процесса в зависимости от пагинации
+        '''
+        #Отложено 11/03/2026
+
         if self.paginate:
             for item in data:
                 page = 1   
@@ -232,7 +238,8 @@ class REST2JSON:
                     except Exception as e:
                         print(f"Error processing {item}: {e}")
                         break   
-        elif not data:
+        '''
+        if not data:
             try:
                 response = self.client_adapter.execute()  # Вызов без данных
                 if self._is_valid_response(response = response,debug=True):

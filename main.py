@@ -6,6 +6,7 @@ from src.REST2JSON.utils.utils import has_data
 
 
 if __name__ == "__main__":
+    
     payload = [
         'SABRRUMM', 'VTBRRUMM', 'GAZPRUMM', 'ALFARUMM', 'MOSCRUMM',
         'RSBNRUMM', 'RUWCRUMM', 'ICBKRUMM', 'KOSKRUMM', 'PARNRUMM',
@@ -38,7 +39,7 @@ if __name__ == "__main__":
     #conf_WorldBank
     #config_newsApi
 
-    config_file = 'C:/Users/kdenis/Documents/Work/OpenApiSpecParser/configs/config.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config.yaml'
     from omegaconf import OmegaConf
 
 
@@ -59,17 +60,17 @@ if __name__ == "__main__":
         })
 
     rest = REST2JSON(new_config)
-
+    result = rest.get_response(payload)
+  
     with rest as requesting:
-        response = []
-        for pay in payload:
-            zapros = {'query':pay}
-            response.append(requesting.get_response(zapros))
+        result = result + requesting.get_response('SABRRUMM')
+        rest_res = rest.get_response(payload)
+        result = result + rest_res
 
 
     import json
     with open('response.json','w',encoding='Utf-8') as f:
-        json.dump(response,f,indent=1)
+        json.dump(result,f,indent=1)
 
     with open('schema_coindesc.json','w',encoding='Utf-8') as f:
         json.dump(rest.get_StructTypeFormatSchema(),f,indent=1)
