@@ -138,6 +138,7 @@ config = DictConfig({
 
 ### Подготовка payload
 required должен быть определен в OpenAPI-спецификации и быть единственным обязательным параметром:
+
 #### Пример 
 
 ```yaml
@@ -191,6 +192,10 @@ requestBody:
 							- CBR
 							- TREASURY
 							- OTHER
+```
+В противном случае, требуется указать все параметры явно:
+```python
+data = {"query": 123,"status":["ACTIVE"],"type":["BANK","BANK_BRANCH","OTHER"]}
 ```
 
 | Тип входных данных   | Результат                                          |
