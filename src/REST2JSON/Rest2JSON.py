@@ -41,25 +41,25 @@ class REST2JSON:
         self.spec = self._load_specification_(self.OpenAPISpecYAMLFilename,self.OpenAPISpecYAMLURL)
         #Загрузка адаптера
 
-        self.parser_adapter = ParserAdapter(self.OpName,self.endpoint_url,self.method,self.spec).get_parser()
-        self.entity_config = self.parser_adapter.request
+        self.__parser_adapter = ParserAdapter(self.OpName,self.endpoint_url,self.method,self.spec).get_parser()
+        self.entity_config = self.__parser_adapter.request
         
         self.base_url = self.__getbase_url(Omegaconfig_stream,self.entity_config)
         self.Tokens = self.Tokens_MOCK(self.TokensFilename,self.base_url)
-        self.client_adapter = ClientAdapter(self.entity_config,self.Tokens,self.base_url)
-        self._in_context = False  # доп флаг
+        self.__client_adapter = ClientAdapter(self.entity_config,self.Tokens,self.base_url)
+        self.__in_context = False  # доп флаг
 
     def __enter__(self):
-        if self._in_context:
+        if self.__in_context:
             raise RuntimeError("Объект уже используется.")
-        self.client_adapter.__enter__()
-        self._in_context = True
+        self.__client_adapter.__enter__()
+        self.__in_context = True
         return self
 
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._in_context = False
-        self.client_adapter.__exit__(exc_type, exc_val, exc_tb)
+        self.__in_context = False
+        self.__client_adapter.__exit__(exc_type, exc_val, exc_tb)
         return False
 
     def _load_specification_(self,filename,url) ->dict:
@@ -112,14 +112,14 @@ class REST2JSON:
             return None    
     
     def get_StructTypeFormatSchema(self):
-        if self.parser_adapter is None:
+        if self.__parser_adapter is None:
             return None
-        return self.parser_adapter.getStructTypeSchema()
+        return self.__parser_adapter.getStructTypeSchema()
     
     def get_JSONTypeschema(self):
-        if self.parser_adapter is None:
+        if self.__parser_adapter is None:
             return None
-        return self.parser_adapter.get_response_map()
+        return self.__parser_adapter.get_response_map()
     
     def _prepare_payload(self, data):
         payload = []
@@ -159,10 +159,9 @@ class REST2JSON:
         """
         return False 
     
-    def _direct(self, payload):
+    def __direct(self, payload):
         """
         Прямой запрос к API используя _get/_post
-        НЕ РАБОТАЕТ СО СПИСКАМИ. ДЛЯ ЭТОГО ЕСТЬ EXECUTE!
         """
         got_list = False
         result = []
@@ -170,15 +169,15 @@ class REST2JSON:
             data_list = self._prepare_payload(payload)
             got_list = True
         else:
-            data_list = self._prepare_payload(payload)
-        
+            data_list = self._prepare_payload(payload) 
         try:
+            http_client = self.__client_adapter.client
             for data in data_list:
             # Определяем метод из конфига
-                method = self.client_adapter.config.get('method', 'GET').upper()
+                method = self.__client_adapter.config.get('method', 'GET').upper()
                 
                 # Формируем URL
-                url_template = f"{self.base_url}{self.client_adapter.config.get('url', '')}"
+                url_template = f"{self.base_url}{self.__client_adapter.config.get('url', '')}"
                 if data:
                     try:
                         url = url_template.format(**data)
@@ -186,8 +185,6 @@ class REST2JSON:
                         url = url_template
                 else:
                     url = url_template
-
-                http_client = self.client_adapter.client
                 
                 # Выполняем прямой запрос
                 if method == 'GET':
@@ -197,15 +194,18 @@ class REST2JSON:
                 
                 # Валидируем ответ
                 if not got_list:
-                    return response
+                    if isinstance(response,dict):
+                        return [response]
+                    else:
+                        return response
                 result.append(response)
             return result
         except Exception as e:
             return None
 
     def get_response(self, data=None):
-        if self._in_context:
-            return self._direct(data)
+        if self.__in_context:
+            return self.__direct(data)
         else:
             payload = self._prepare_payload(data)
             self.__enter__()
@@ -241,7 +241,7 @@ class REST2JSON:
         '''
         if not data:
             try:
-                response = self.client_adapter.execute()  # Вызов без данных
+                response = self.__client_adapter.execute()  # Вызов без данных
                 if self._is_valid_response(response = response,debug=True):
                     results.append(response)
                     return results
@@ -253,7 +253,7 @@ class REST2JSON:
         else:
             for item in data:
                 try:
-                    response = self.client_adapter.execute(item)
+                    response = self.__client_adapter.execute(item)
                     if self._is_valid_response(response = response,debug=True) or True: #вынести в контроль загрузки
                          results.append(response)
                 except Exception as e:
@@ -270,8 +270,8 @@ class REST2JSON:
         return token
     
     def close(self):
-        if self._in_context:
-            self._in_context = False
-            self.client_adapter.close()
+        if self.__in_context:
+            self.__in_context = False
+            self.__client_adapter.close()
             
 
