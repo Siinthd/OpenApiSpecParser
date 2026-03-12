@@ -44,7 +44,7 @@ config = DictConfig({
 
 
 adapter = REST2JSON(config)
-response = adapter.get_response({"userId": 123})
+response = adapter.get_response({"query": 123})
 print(response)
 
   
@@ -55,17 +55,24 @@ print(response)
 ```Python
 with REST2JSON(config) as adapter:
 	 # Работа с адаптером
-    response = adapter.get_response({"userId": 123})
+    response = adapter.get_response({"query": 123})
     print(response)
     # Автоматическое закрытие соединений
 ```
 
 ### Пакетная обработка
 ```Python
+payload = [{"query": 123}, {"query": 456}, {"query": 789}] #API-сервис ожидает параметр c именем query
+
 with REST2JSON(config) as adapter:
-    users = [{"userId": 123}, {"userId": 456}, {"userId": 789}]
-    results = adapter.get_response(users)
+    results = adapter.get_response(payload)
     for result in results:
+        print(result)
+
+#или
+adapter = REST2JSON(payload)
+response = adapter.get_response(payload)
+for result in response:
         print(result)
 ```
 
@@ -80,8 +87,8 @@ config = DictConfig({
     "spec_data": "path/to/spec.yaml",  # или None если используется URL
     "spec_url": "https://api.example.com/openapi.yaml",  # или None если используется файл
     "Token_src": "tokens.json",  # путь к файлу с токенами
-    "name": "operation_name",  # имя операции из OpenAPI
-    "endpoint_url": "/endpoint/{param}",  # шаблон URL
+    "name": "operation_name",  # ID операции из OpenAPI
+    "endpoint_url": "/endpoint/{param}",  # URL-эндпоинта
     "method": "GET",  # HTTP метод (GET/POST)
     "pagination": False,  # включить пагинацию
     "page_param": "page",  # параметр страницы для пагинации
@@ -91,11 +98,9 @@ config = DictConfig({
 
 ###  Файл токенов (tokens.json)
 ```json
-    "base_url":
-    {
-    "Authorization":  "Token {Token}}",
-    "X-Secret": "{X-Secret}}"
-    }
+"base_url":{
+"Authorization":  "Token {Token}}",
+"X-Secret": "{X-Secret}}"}
 ```
 
 ## API Reference
@@ -115,11 +120,8 @@ config = DictConfig({
 - `data` - Данные для запроса. Может быть:
     
     - `None` - запрос без параметров
-        
     - `dict` - одиночный запрос
-        
     - `list[dict]` - пакет запросов
-        
     - `str/int` - одиночное значение (будет преобразовано в параметр required)
         
 
@@ -127,19 +129,27 @@ config = DictConfig({
 
 ##### `get_StructTypeFormatSchema()`
 
-Возвращает схему структуры данных из OpenAPI спецификации.
+Возвращает схему структуры данных из OpenAPI спецификации (Spark-формат).
 
 ##### `get_JSONTypeschema()`
 
-Возвращает JSON Schema ответа из спецификации.
+Возвращает JSON Schema ответа из спецификации (as is, с раскрытием #ref).
 
 
-## Обработка данных
+## Обработка payload
 
-### Подготовка payload
-required должен быть определен в OpenAPI-спецификации и быть единственным обязательным параметром:
+Для получения ответа от API сервиса необходимо передать в запрос параметры, которые он ожидает — обычно это идентификаторы, фильтры или данные для создания/обновления объектов.
+Они могут быть переданы как часть URL (например, /users/123), в строке запроса (?page=2) или в теле запроса (JSON с полями).
 
-#### Пример requited в спецификации
+Такие параметры указаны в разделе "requestBody". Часто, это один параметр и можно передать в REST2JSON список значения без указания имени параметра - Сервис сам подставить имя параметра.
+
+В противном случае, требуется указать все параметры явно:
+
+```python
+data = {"query": 123,"status":["ACTIVE"],"type":["BANK","BANK_BRANCH","OTHER"]}
+```
+
+#### Пример required в спецификации
 
 ```yaml
 requestBody:
@@ -193,16 +203,13 @@ requestBody:
 							- TREASURY
 							- OTHER
 ```
-В противном случае, требуется указать все параметры явно:
-```python
-data = {"query": 123,"status":["ACTIVE"],"type":["BANK","BANK_BRANCH","OTHER"]}
-```
+
 
 | Тип входных данных   | Результат                                          |
 | -------------------- | -------------------------------------------------- |
 | `dict`               | `[dict]` - одиночный запрос                        |
 | `list[dict]`         | `list[dict]` - пакет запросов                      |
-| `list` (не словарей) | Если required имеет 1 параметр: `[{query: value}]` |
+| `list` (не словарей) | Если required имеет n параметров: `[{query: value_1}...{query: value_n}]` |
 | Одиночное значение   | Если required имеет 1 параметр: `[{query: value}]` |
 
 ### Примеры преобразования данных
@@ -210,10 +217,10 @@ data = {"query": 123,"status":["ACTIVE"],"type":["BANK","BANK_BRANCH","OTHER"]}
 ```python
 # Одиночный словарь
 data = {"query": 123}
-# → [{"userId": 123}]
+# → [{"query": 123}]
 # Список словарей
 data = [{"query": 123}, {"query": 456}]
-# → [{"userId": 123}, {"userId": 456}]
+# → [{"query": 123}, {"query": 456}]
 # Список значений (если required = ["id"])
 data = [123, 456, 789]
 # [{"query": 123}, {"query": 456}, {"query": 789}]
