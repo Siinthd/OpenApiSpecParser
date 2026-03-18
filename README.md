@@ -87,22 +87,20 @@ config = DictConfig({
     # OpenAPI спецификация
     "spec_data": "path/to/spec.yaml",  # или None если используется URL
     "spec_url": "https://api.example.com/openapi.yaml",  # или None если используется файл
-    "Token_src": "tokens.json",  # путь к файлу с токенами
+    "auth_header": {"Authorization": "0123456789abcdef","X-Secret": "{X-Secret}}"}, # авторизация через header (1 приоритет)
+    "auth_body" : {ApiKey: "0123456789abcdef"}, #
     "name": "operation_name",  # ID операции из OpenAPI
     "endpoint_url": "/endpoint/{param}",  # URL-эндпоинта
+	"timeout": 15, # таймаут
     "method": "GET",  # HTTP метод (GET/POST)
     "pagination": False,  # включить пагинацию
     "page_param": "page",  # параметр страницы для пагинации
     "base_url": "https://api.example.com"  # базовый URL API
+    "type_mapping" :{string: "string",number: "long"} , # маппинг типов для преобразования json типы в Spark-типы (Дефолтный)
+    "json_mapping_override" :{string: "string",number: "number"}, # настраиваемый маппинг типов для преобразования json типов
 })
 ```
 
-###  Файл токенов (tokens.json)
-```json
-"base_url":{
-"Authorization":  "Token {Token}}",
-"X-Secret": "{X-Secret}}"}
-```
 
 ## API Reference
 
