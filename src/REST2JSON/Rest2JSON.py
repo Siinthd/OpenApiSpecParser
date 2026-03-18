@@ -106,7 +106,7 @@ class REST2JSON:
                 auth_body = OmegaConf.to_object(config_input.auth_body)
             #############обработка маппинга типов
             type_mapping = OmegaConf.merge(config_input.type_mapping, config_input.json_mapping_override)
-            return config_input.spec_data,config_input.spec_url,auth_header,auth_body,config_input.name,config_input.endpoint_url,config_input.method,config_input.timeout,config_input.pagination,config_input.page_param,mapping_type
+            return config_input.spec_data,config_input.spec_url,auth_header,auth_body,config_input.name,config_input.endpoint_url,config_input.method,config_input.timeout,config_input.pagination,config_input.page_param,type_mapping
         else:
             return None    
     
