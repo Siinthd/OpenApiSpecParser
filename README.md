@@ -34,13 +34,17 @@ from omegaconf import DictConfig
 config = DictConfig({
     "spec_data": "openapi.yaml",
     "spec_url": None,
-    "Token_src": "tokens.json",
+    "auth_header": {"Authorization": "0123456789abcdef","X-Secret": "{X-Secret}}"}, 
+    "auth_body" : {ApiKey: "0123456789abcdef"}, 
     "name": "getUser",
     "endpoint_url": "/users/{userId}",
     "method": "GET",
+	"timeout": 15,
     "pagination": False,
     "page_param": None,
-    "base_url": "https://api.example.com"
+    "base_url": "https://api.example.com",
+    "type_mapping" :{string: "string",number: "long"} ,
+    "json_mapping_override" :{string: "string",number: "number"},
 })
 
 
