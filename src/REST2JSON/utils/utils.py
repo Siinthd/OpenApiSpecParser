@@ -2,9 +2,13 @@ from typing import Any, List, Dict, Optional,Tuple,Union
 
 class OpenAPIToSparkConverter:
     """Конвертер OpenAPI схем в Spark StructType JSON формат без зависимости от PySpark"""
-    
-    @staticmethod
-    def convert(schema: Dict[str, Any]) -> Dict[str, Any]:
+
+
+
+    def __init__(self,mapping_type: Dict[str, Any]):
+        self.type_mapping = mapping_type or {}
+
+    def convert(self,schema: Dict[str, Any]) -> Dict[str, Any]:
         """
         Конвертирует OpenAPI схему в Spark StructType JSON формат
         
@@ -14,8 +18,7 @@ class OpenAPIToSparkConverter:
         Returns:
             Схема в формате Spark StructType JSON
         """
-        converter = OpenAPIToSparkConverter()
-        return converter._convert_node(schema, "$")
+        return self._convert_node(schema, "$")
     
     def _convert_node(self, node: Any, path: str) -> Any:
         """Рекурсивно конвертирует узел схемы"""
@@ -43,16 +46,7 @@ class OpenAPIToSparkConverter:
     
     def _map_type(self, json_type: str) -> str:
         """Маппинг JSON типов в Spark типы"""
-        type_mapping = {
-            "string": "string",
-            "integer": "long",
-            "number": "double",
-            "boolean": "boolean",
-            "object": "struct",
-            "array": "array",
-            "null": "null"
-        }
-        return type_mapping.get(json_type, "string")
+        return self.type_mapping.get(json_type, "string")
     
     def _handle_array_node(self, node: List, path: str) -> str:
         """Обрабатывает узлы-массивы"""
@@ -91,20 +85,15 @@ class OpenAPIToSparkConverter:
         
         # Определяем тип элементов
         if isinstance(items, list):
-            element_type = "string"
+            element_result = "string"
         else:
-            element_type = self._convert_node(items, f"{path}[]")
+            element_result = self._convert_node(items, f"{path}[]")
         
         result = {
             "type": "array",
-            "containsNull": node.get("nullable", False)
+            "containsNull": node.get("nullable", False),
+            "elementType": element_result  # element_result уже содержит правильную структуру
         }
-        
-        # Добавляем elementType
-        if isinstance(element_type, dict):
-            result["elementType"] = element_type
-        else:
-            result["elementType"] = element_type
         
         return result
     
@@ -119,7 +108,16 @@ class OpenAPIToSparkConverter:
             nullable = prop_name not in required
             
             # Конвертируем тип поля
-            field_type = self._convert_node(prop_schema, f"{path}.{prop_name}")
+            field_result = self._convert_node(prop_schema, f"{path}.{prop_name}")
+            
+            # Обрабатываем результат в зависимости от его типа
+            field_type = field_result
+            field_metadata = None
+            # Если результат - словарь и содержит metadata с format
+            if isinstance(field_result, dict) and "metadata" in field_result:
+                field_type = field_result["type"]
+                field_metadata = field_result.get("metadata",None)
+            # Если результат - строка, просто используем её как тип
             
             field = {
                 "name": prop_name,
@@ -127,6 +125,9 @@ class OpenAPIToSparkConverter:
                 "type": field_type,
                 "metadata": {}
             }
+            
+            if field_metadata:
+                field["metadata"] = field_metadata
             
             fields.append(field)
         
@@ -138,26 +139,28 @@ class OpenAPIToSparkConverter:
             "fields": fields
         }
     
-    def _handle_primitive_type(self, node: Dict, path: str) -> str:
+    def _handle_primitive_type(self, node: Dict, path: str) -> Any:
         """Обрабатывает примитивный тип"""
         node_type = node.get("type", "string")
         node_format = node.get("format")
         
-        # Обработка специальных форматов
-        format_mapping = {
-            "int32": "integer",
-            "int64": "long",
-            "float": "float",
-            "double": "double",
-            "date": "string",  # Spark использует string для дат
-            "date-time": "string",
-            "binary": "binary"
-        }
+        spark_type = self._map_type(node_type)
+
+        # Собираем все остальные поля в metadata
+        metadata = {}
+        for key, value in node.items():
+            if key not in ["type", "nullable","name"]:  # Исключаем уже обработанные поля
+                if value is not None:
+                    metadata[key] = value
         
-        if node_format and node_format in format_mapping:
-            return format_mapping[node_format]
+        # Если есть метаданные или формат, возвращаем словарь
+        if metadata or node_format:
+            return {
+                "type": spark_type,
+                "metadata": metadata
+            }
         
-        return self._map_type(node_type)
+        return spark_type
     
     @staticmethod
     def extract_response_schema(openapi_spec: Dict[str, Any], 

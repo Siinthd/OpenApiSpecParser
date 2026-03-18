@@ -42,7 +42,7 @@ class ClientBase:
 
 class URESTAdapter():
     
-    def __init__(self, config: Any, token: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(self, config: Any, token: Optional[str] = None, base_url: Optional[str] = None,timeout = None):
         """
         Инициализация клиента API
         
@@ -55,16 +55,14 @@ class URESTAdapter():
         self.token = token
         self.base_url = base_url
         self._client_instance = None
-
+        self.timeout = timeout
         self._client_owned = False 
 
     def _prepare_headers(self):
         headers = self.config.get('headers', {})
-        
         if self.token:
             if isinstance(self.token, dict):
                 headers.update(self.token)  
-        
         return headers    
 
 
@@ -99,7 +97,7 @@ class URESTAdapter():
         if self._client_instance is None:
             self._client_instance = ClientBase(
                 headers=self._prepare_headers(),
-                timeout=self.config.get('timeout', 3)
+                timeout=self.timeout
             )
             self._client_owned = True
         return self._client_instance

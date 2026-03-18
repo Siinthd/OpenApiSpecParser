@@ -20,8 +20,8 @@ class ParserAdapter(OASParser):
         return self._parser
 
 class ClientAdapter(URESTAdapter):
-    def __init__(self, entity,extra_headers,base_url):
-        super().__init__(entity, extra_headers,base_url)
+    def __init__(self, entity,extra_headers,base_url,timeout):
+        super().__init__(entity, extra_headers,base_url,timeout)
     
     
 
@@ -36,17 +36,17 @@ class REST2JSON:
                 Omegaconfig_stream: DictConfig = None):
         #Загружаем объект DictConfig
         self.Omegaconfig_stream = Omegaconfig_stream
-        self.OpenAPISpecYAMLFilename,self.OpenAPISpecYAMLURL,self.TokensFilename,self.OpName,self.endpoint_url,self.method,self.paginate,self.page_param = self.__load_configuration(Omegaconfig_stream)
+        self.OpenAPISpecYAML,self.OpenAPISpecYAMLURL,self.auth_header,self.auth_body,self.OpName,self.endpoint_url,self.method,self.timeout,self.paginate,self.page_param,self.type_mapping = self.__load_configuration(Omegaconfig_stream)
         #Получаем спецификацию
-        self.spec = self._load_specification_(self.OpenAPISpecYAMLFilename,self.OpenAPISpecYAMLURL)
+        self.spec = self._load_specification_(self.OpenAPISpecYAML,self.OpenAPISpecYAMLURL)
         #Загрузка адаптера
 
         self.__parser_adapter = ParserAdapter(self.OpName,self.endpoint_url,self.method,self.spec).get_parser()
         self.entity_config = self.__parser_adapter.request
         
         self.base_url = self.__getbase_url(Omegaconfig_stream,self.entity_config)
-        self.Tokens = self.Tokens_MOCK(self.TokensFilename,self.base_url)
-        self.__client_adapter = ClientAdapter(self.entity_config,self.Tokens,self.base_url)
+        #self.Tokens = self.Tokens_MOCK(self.TokensFilename,self.base_url)
+        self.__client_adapter = ClientAdapter(self.entity_config,self.auth_header,self.base_url,self.timeout)
         self.__in_context = False  # доп флаг
 
     def __enter__(self):
@@ -62,25 +62,17 @@ class REST2JSON:
         self.__client_adapter.__exit__(exc_type, exc_val, exc_tb)
         return False
 
-    def _load_specification_(self,filename,url) ->dict:
-        import json,yaml
-        
-        if filename:
-            try:
-                with open(filename, 'r', encoding='utf-8') as f:
-                    content = f.read()
-            except:
-                raise ValueError("Ошибка при открытии файла OpenAPI spec")
-            # пробуем JSON, потом YAML
-            try:
-                return json.loads(content)
-            except:
-                try:
-                    return yaml.safe_load(content)
-                except:
-                    raise ValueError("Невалидный OpenAPI spec")
-        elif url:
+    def _load_specification_(self,src,url) ->dict:
+        import yaml 
+        if url:
             return self._get_specfromrequest(url)
+        elif src:
+            try:
+                return yaml.safe_load(src)
+            except:
+                raise ValueError("Невалидный OpenAPI spec")
+        else:
+            raise ValueError("Отсутствуют источники спецификаций в конфигурационном файле.")
 
 
     def _get_specfromrequest(self,url):
@@ -106,15 +98,22 @@ class REST2JSON:
             return ''
 
     def __load_configuration(self,config_input):
+        auth_header,auth_body = {},{}
         if isinstance(config_input, DictConfig):
-            return config_input.spec_data,config_input.spec_url,config_input.Token_src,config_input.name,config_input.endpoint_url,config_input.method,config_input.pagination,config_input.page_param
+            if config_input.auth_header:
+                auth_header = OmegaConf.to_object(config_input.auth_header)
+            if config_input.auth_body:
+                auth_body = OmegaConf.to_object(config_input.auth_body)
+            #############обработка маппинга типов
+            type_mapping = OmegaConf.merge(config_input.type_mapping, config_input.json_mapping_override)
+            return config_input.spec_data,config_input.spec_url,auth_header,auth_body,config_input.name,config_input.endpoint_url,config_input.method,config_input.timeout,config_input.pagination,config_input.page_param,mapping_type
         else:
             return None    
     
     def get_StructTypeFormatSchema(self):
         if self.__parser_adapter is None:
             return None
-        return self.__parser_adapter.getStructTypeSchema()
+        return self.__parser_adapter.getStructTypeSchema(self.type_mapping)
     
     def get_JSONTypeschema(self):
         if self.__parser_adapter is None:
@@ -122,9 +121,11 @@ class REST2JSON:
         return self.__parser_adapter.get_response_map()
     
     def _prepare_payload(self, data):
+        #TODO 
+        #добавить вставку ApiKey в каждый запрос,
+        #по условию если нет хидера и есть боди
         payload = []
         required = self.entity_config.get('required',[])
-        #variables = self.entity_config.get('variables',[])
         datatype =  type(data)
         if datatype == dict:
             entity_variables = self.entity_config.get('variables',None)
@@ -142,9 +143,13 @@ class REST2JSON:
                     print('Требуется явно указать параметр(ы) запроса')
         elif data:
             payload = [{required[0]: value} for value in [data]]
-        else:
-            return data
-
+        else: # Если запрос - это просто обращение по ссылке
+            payload = data     
+        if not self.auth_header and self.auth_body: #Добавляем пароль к сообщению , 1 приоритет - header
+            if payload:
+                payload = [value.update(self.auth_body) for value in [data]] # на этот момент payload уже список словарей
+            else:
+                payload = self.auth_body
         return payload
         
     def _is_valid_response(self, response=None,entity_schema=None,debug=True):

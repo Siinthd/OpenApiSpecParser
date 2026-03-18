@@ -22,7 +22,6 @@ class OASParser:
         self.request = self._transform_spec_to_requests(self._resolve_refs_in_operation(copy.deepcopy(self.post),self.extract_schemas_with_payloads(copy.deepcopy(self.spec))))
         #Версия словаря для OneETL
         self.response_map = self._resolve_refs_in_operation(copy.deepcopy(self.post),self.extract_schemas(copy.deepcopy(self.spec))).get('response',None)
-        self.response_sparkdf = self._convert_schema_to_sprkfrm(copy.deepcopy(self.response_map))
         
 
 
@@ -30,8 +29,8 @@ class OASParser:
     #Я ищу по endpoint, если endpoint пустой,то пытаюсь через OperationID
     #Поскольку операции разнородные - нужно придумать метод обхода сначала 
 
-    def getStructTypeSchema(self):
-        return self.response_sparkdf
+    def getStructTypeSchema(self,type_mapping):
+        return self._convert_schema_to_sprkfrm(copy.deepcopy(self.response_map),type_mapping)
     
     def _findendpointbypath(self,spec_dict: dict,key) -> dict:
         endpoints = spec_dict.get('paths', {})
@@ -758,7 +757,8 @@ class OASParser:
         
         return resolved_payloads
 
-    def _convert_schema_to_sprkfrm(self,response_map):
-        spark_json_schema = OpenAPIToSparkConverter.convert(response_map)
+    def _convert_schema_to_sprkfrm(self,response_map,type_mapping):
+        converter = OpenAPIToSparkConverter(type_mapping)
+        spark_json_schema = converter.convert(response_map)
         return spark_json_schema
         
