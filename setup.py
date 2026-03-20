@@ -6,13 +6,13 @@ def readme():
 
 setup(
     name='REST2JSON',
-    version='0.1.0',
+    version='0.1.1',
     author='Denis Kodolich',
     author_email='d.kodolich@concept-software.ru',
     description='metadriven-адаптер для RESTAPI запросов',
     long_description=readme(),
     long_description_content_type='text/markdown',
-    url='https://github.com/Siinthd/OpenApiSpecParser',  # Добавьте ваш репозиторий
+    url='https://github.com/Siinthd/REST2JSON',  # Добавьте ваш репозиторий
     
     # Классификаторы для PyPI
     classifiers=[

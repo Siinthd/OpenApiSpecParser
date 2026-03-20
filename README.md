@@ -17,7 +17,7 @@
 ## Установка
 
 ```bash
-pip install git+https://github.com/Siinthd/OpenApiSpecParser.git
+pip install git+https://github.com/Siinthd/Rest2JSON.git
 ```
 
 
