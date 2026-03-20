@@ -12,7 +12,7 @@ class ClientBase:
         timeout: int = 3,
     ):
         self.headers = headers
-        self.headers["Accept"] = "application/json"
+        self.headers["Accept"] = "application/json" #default
         if extra_headers:
             for key,value in extra_headers.items():
                 self.headers[key] = value

@@ -1,6 +1,8 @@
 #Объединяет класс парсера и класс клиента
 
 #на вход получает конфигурацию - разбивает ее,выбирает стратегию,по возможности - внешняя оценка результата для контроля загрузки
+import os
+from urllib.parse import urlparse
 from omegaconf import DictConfig, OmegaConf
 from .utils.OASParser import OASParser
 from .utils.utils import has_data
@@ -64,26 +66,45 @@ class REST2JSON:
 
     def _load_specification_(self,src,url) ->dict:
         import yaml 
-        if url:
-            return self._get_specfromrequest(url)
+        if url: #TODO обработка списка ссылок,добавть break,приоритет
+            data = self._get_specfromurl(url)
         elif src:
             try:
-                return yaml.safe_load(src)
+                data = yaml.safe_load(src)
             except:
                 raise ValueError("Невалидный OpenAPI spec")
-        else:
-            raise ValueError("Отсутствуют источники спецификаций в конфигурационном файле.")
+        if not data:
+            raise ValueError("Отсутствуют источники спецификаций.")
+        return data
 
 
-    def _get_specfromrequest(self,url):
-        import requests,yaml
+    def _get_specfromurl(self,url):
+        import requests,yaml,re
         try:
-            response = requests.get(url)
-            response.raise_for_status() 
-            response.encoding = response.apparent_encoding or 'utf-8'
-            data = yaml.safe_load(response.text)
-            return data
-        except requests.exceptions.RequestException as e:
+            if re.match(r'^\w+:\/\/\w',url):
+                parsed = urlparse(url)
+                if parsed.scheme in ('http', 'https'):
+                    response = requests.get(url)
+                    response.raise_for_status()
+                    response.encoding = response.apparent_encoding or 'utf-8'
+                    response = response.text
+                elif parsed.scheme == 'file':  
+                    path_part = url.replace('file://', '', 1)
+                    #запрещенка в ссылке на файл,список возможных символов
+                    forbidden = ['..', '~', '$', ';', '|', '&', '`', '\\']
+                    if any(x in path_part for x in forbidden):
+                        raise ValueError("Обнаружены потенциально опасные символы")
+                    clean_path = os.path.normpath(path_part)
+                    abs_path = os.path.abspath(clean_path)
+                    # 4. Открытие файла
+                    if os.path.isfile(abs_path) and os.access(abs_path, os.R_OK):
+                        response = open(abs_path, 'r').read()
+                else:
+                    return None 
+                data = yaml.safe_load(response)
+                return data       
+            return None
+        except requests.exceptions.RequestException as e: #Падение. Есть ли смысл ронять программу здесь,когда возможно обработка списка
             return None
         except yaml.YAMLError as e:
             return None
@@ -264,15 +285,6 @@ class REST2JSON:
                 except Exception as e:
                     print(f"Error processing {item}: {e}")        
         return results
-
-
-    def Tokens_MOCK(self,filename,base_url):
-        import json
-            #Mock сервера ключей
-        with open(filename, 'r', encoding='utf-8') as f:
-            tokens = json.load(f)
-        token = tokens.get(base_url,None)
-        return token
     
     def close(self):
         if self.__in_context:

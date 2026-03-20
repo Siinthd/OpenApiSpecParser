@@ -17,11 +17,11 @@ class OASParser:
         self.spec = copy.deepcopy(loaded_spec)
         self.base_url = self.__getbaseurl(self.spec)
         #Парсим документ,формируем справочник
-        self.post = self._parse_specification(self.__getEndpoint(self.spec))
+        self.post = self.__parse_specification(self.__getEndpoint(self.spec))
         #Версия словаря для REST2JSON
-        self.request = self._transform_spec_to_requests(self._resolve_refs_in_operation(copy.deepcopy(self.post),self.extract_schemas_with_payloads(copy.deepcopy(self.spec))))
+        self.request = self.__transform_spec_to_requests(self.__resolve_refs_in_operation(copy.deepcopy(self.post),self.__extract_schemas_with_payloads(copy.deepcopy(self.spec))))
         #Версия словаря для OneETL
-        self.response_map = self._resolve_refs_in_operation(copy.deepcopy(self.post),self.extract_schemas(copy.deepcopy(self.spec))).get('response',None)
+        self.response_map = self.__resolve_refs_in_operation(copy.deepcopy(self.post),self.__extract_schemas(copy.deepcopy(self.spec))).get('response',None)
         
 
 
@@ -30,35 +30,44 @@ class OASParser:
     #Поскольку операции разнородные - нужно придумать метод обхода сначала 
 
     def getStructTypeSchema(self,type_mapping):
-        return self._convert_schema_to_sprkfrm(copy.deepcopy(self.response_map),type_mapping)
+        return self.__convert_schema_to_sprkfrm(copy.deepcopy(self.response_map),type_mapping)
     
-    def _findendpointbypath(self,spec_dict: dict,key) -> dict:
+    def getSpecification(self):
+        return self.spec
+    
+    def __findendpointbypath(self,spec_dict: dict,key) -> dict:
         endpoints = spec_dict.get('paths', {})
         endpoint =  endpoints.get(key,None)
-        for key,value in endpoint.items():
-            if key == self.target_method:
-                return endpoint
+        if endpoint:
+            for key,value in endpoint.items():
+                if key == self.target_method:
+                    return endpoint
         return None
-    
-    def _findendpointbyOpId(self,spec_dict: dict,key) -> dict:
+        
+
+    def __findendpointbyOpId(self,spec_dict: dict,key) -> dict:
         for path, methods in spec_dict.get('paths', {}).items():
-                for method_name, method_details in methods.items():
-                    operation_id = method_details.get('operationId',None)
-                    if operation_id == key:
-                        self.target_endpoint = path
-                        return {method_name:method_details}
+            for method_name, method_details in methods.items():
+                operation_id = method_details.get('operationId',None)
+                if operation_id == key:
+                    self.target_endpoint = path
+                    return {method_name:method_details}
         return None
 
     def __getEndpoint(self,spec:dict) -> dict: 
+        endpoint = None
         #Сначала проверяем по endpoint_url
-        if self.target_endpoint:
-           return self._findendpointbypath(spec,self.target_endpoint)
+        endpoint = self.__findendpointbypath(spec,self.target_endpoint)
+        if endpoint:
+            return endpoint
         #затем по name
-        elif self.operation_Name:
-            return self._findendpointbyOpId(spec,self.operation_Name)
-        return None
+        endpoint =  self.__findendpointbyOpId(spec,self.operation_Name)
+        if endpoint:
+            return endpoint
+        if endpoint is None:
+            raise f'endpoint_url {self.target_endpoint} или OperationID{self.operation_Name} отсутствуют в спецификации.Дальнейшая работа невозможна.'
 
-    def _resolve_refs_in_operation(self, operation_spec: dict,ref_dict : dict) -> dict:
+    def __resolve_refs_in_operation(self, operation_spec: dict,ref_dict : dict) -> dict:
         """
         Заменяет $ref в параметрах операции.
         """
@@ -71,9 +80,9 @@ class OASParser:
                         operation_spec[key] = ref_dict[value["$ref"]]
                     else:
                         # Рекурсивно обрабатываем дальше
-                        self._resolve_refs_in_operation(value, ref_dict)
+                        self.__resolve_refs_in_operation(value, ref_dict)
                 elif isinstance(value, list):
-                    self._resolve_refs_in_operation(value, ref_dict)
+                    self.__resolve_refs_in_operation(value, ref_dict)
         elif isinstance(operation_spec, list):
             for i, item in enumerate(operation_spec):
                 if isinstance(item, dict):
@@ -81,9 +90,9 @@ class OASParser:
                         # Заменяем элемент списка на содержимое схемы
                         operation_spec[i] = ref_dict[item["$ref"]]
                     else:
-                        self._resolve_refs_in_operation(item, ref_dict)
+                        self.__resolve_refs_in_operation(item, ref_dict)
                 elif isinstance(item, list):
-                    self._resolve_refs_in_operation(item, ref_dict)
+                    self.__resolve_refs_in_operation(item, ref_dict)
         
         return operation_spec
 
@@ -141,7 +150,7 @@ class OASParser:
         
         return ''
         
-    def _parse_specification(self, spec_dict: dict) -> dict:
+    def __parse_specification(self, spec_dict: dict) -> dict:
             result = {}
             path = self.target_endpoint
             for method_name, method_details in spec_dict.items():
@@ -160,9 +169,9 @@ class OASParser:
                         # Используем security из метода - выкинуть
                         endpoint_data['security'] = method_security
                             
-                    request_body = method_details.get('requestBody', {})
+                    request_body = method_details.get('requestBody', {}) 
                     if request_body:
-                        content = request_body.get('content', {})
+                        content = request_body.get('content', {}) #Тут возможная проблема, мы берем контент из request,а надо response
                         if content:
                             content_type = next(iter(content))
                             content_details = content[content_type]
@@ -256,7 +265,7 @@ class OASParser:
 
         return None
 
-    def _transform_spec_to_requests(self, spec: dict) -> dict:
+    def __transform_spec_to_requests(self, spec: dict) -> dict:
         request = {}
         try:
             path = spec.get("path", '')            
@@ -308,7 +317,7 @@ class OASParser:
                     param_name = param.get("name")
                     param_in = param.get("in")
                     param_required = param.get("required", False)
-                    
+                    #тоже лишний кусок,возможно
                     if param_name and param_in == "query":
                         all_variables.add(param_name)
                         if param_required:
@@ -317,7 +326,7 @@ class OASParser:
             # 5. Параметры из request_body
             request_body = spec.get("request_body", {})
             
-            def extract_body_params(body_spec, parent_path="", skip_parent=False):
+            def __extract_body_params(body_spec, parent_path="", skip_parent=False):
                 """
                 Извлекает имена параметров из body
                 skip_parent: True если нужно пропустить имя родительского контейнера
@@ -356,7 +365,7 @@ class OASParser:
                             
                             # Если это объект с properties
                             if prop_type == "object" and "properties" in prop_schema:
-                                nested_params, nested_required = extract_body_params(
+                                nested_params, nested_required = __extract_body_params(
                                     prop_schema,
                                     parent_path=full_name,
                                     skip_parent=False
@@ -368,7 +377,7 @@ class OASParser:
                             elif prop_type == "array" and "items" in prop_schema:
                                 items = prop_schema["items"]
                                 if isinstance(items, dict) and items.get("type") == "object" and "properties" in items:
-                                    nested_params, nested_required = extract_body_params(
+                                    nested_params, nested_required = __extract_body_params(
                                         items,
                                         parent_path=f"{full_name}[*]",
                                         skip_parent=False
@@ -398,7 +407,7 @@ class OASParser:
                             # Рекурсивно обрабатываем вложенные объекты
                             field_type = field_schema.get("type")
                             if field_type == "object" and "properties" in field_schema:
-                                nested_params, nested_required = extract_body_params(
+                                nested_params, nested_required = __extract_body_params(
                                     field_schema,
                                     parent_path=full_name,
                                     skip_parent=False
@@ -409,7 +418,7 @@ class OASParser:
                                 items = field_schema["items"]
                                 if isinstance(items, dict):
                                     if items.get("type") == "object" and "properties" in items:
-                                        nested_params, nested_required = extract_body_params(
+                                        nested_params, nested_required = __extract_body_params(
                                             items,
                                             parent_path=f"{full_name}[*]",
                                             skip_parent=False
@@ -437,7 +446,7 @@ class OASParser:
                             # Получаем все поля внутри этого объекта
                             if "properties" in prop_schema:
                                 # Это объект с properties - обрабатываем его поля как параметры верхнего уровня
-                                container_params, container_required = extract_body_params(
+                                container_params, container_required = __extract_body_params(
                                     prop_schema,
                                     skip_parent=True  # Пропускаем имя контейнера
                                 )
@@ -453,14 +462,14 @@ class OASParser:
                                             body_required.add(field_name)
                         else:
                             # Обычное поле не-контейнер
-                            field_params, field_required = extract_body_params(
+                            field_params, field_required = __extract_body_params(
                                 {prop_name: prop_schema}
                             )
                             body_params.update(field_params)
                             body_required.update(field_required)
                 else:
                     # Если нет properties, пробуем обработать как есть
-                    body_params, body_required = extract_body_params(request_body)
+                    body_params, body_required = __extract_body_params(request_body)
                 
                 all_variables.update(body_params)
                 required_variables.update(body_required)
@@ -495,7 +504,7 @@ class OASParser:
     def _get_request_config(self):
         return self.request
 
-    def _schema_to_payload(self, schema: dict) -> dict:
+    def __schema_to_payload(self, schema: dict) -> dict:
 
         """Преобразует одну схему в payload структуру"""
         payload = {}
@@ -582,9 +591,10 @@ class OASParser:
         
         return payload
 
-    def extract_schemas(self, openapi_spec: dict) -> dict:
+    def __extract_schemas(self, openapi_spec: dict) -> dict:
         
         # Загружаем сырые схемы
+        # много хардкода,т.к идем по стандарту
         raw_schemas = {}
         if 'components' in openapi_spec and isinstance(openapi_spec['components'], dict):
             if 'schemas' in openapi_spec['components'] and isinstance(openapi_spec['components']['schemas'], dict):
@@ -594,7 +604,7 @@ class OASParser:
         
         resolved_schemas = {}
         
-        def resolve_obj(obj, stack=None):
+        def __resolve_obj(obj, stack=None):
             """Разрешает ссылки в объекте с контролем стека"""
             if stack is None:
                 stack = []
@@ -609,7 +619,7 @@ class OASParser:
                         
                         stack.append(ref)
                         resolved = raw_schemas[ref]
-                        result = resolve_obj(resolved, stack)
+                        result = __resolve_obj(resolved, stack)
                         stack.pop()
                         return result
                     return obj
@@ -624,24 +634,24 @@ class OASParser:
                         else:
                             stack.append(value)
                             resolved = raw_schemas[value]
-                            result[key] = resolve_obj(resolved, stack)
+                            result[key] = __resolve_obj(resolved, stack)
                             stack.pop()
                     else:
-                        result[key] = resolve_obj(value, stack)
+                        result[key] = __resolve_obj(value, stack)
                 return result
             
             elif isinstance(obj, list):
-                return [resolve_obj(item, stack) for item in obj]
+                return [__resolve_obj(item, stack) for item in obj]
             
             return obj
         
         # Разрешаем все схемы
         for ref_key in raw_schemas.keys():
-            resolved_schemas[ref_key] = resolve_obj(raw_schemas[ref_key])
+            resolved_schemas[ref_key] = __resolve_obj(raw_schemas[ref_key])
         
         return resolved_schemas
 
-    def extract_schemas_with_payloads(self, spec_dict: dict) -> dict:
+    def __extract_schemas_with_payloads(self, spec_dict: dict) -> dict:
         """
         Извлекает все схемы из всех разделов components и преобразует их в payload
         Возвращает словарь {полный_ref: payload}
@@ -659,7 +669,7 @@ class OASParser:
             for item_name, item_data in section_content.items():
                 full_ref = f"#/components/{section_name}/{item_name}"
                 if isinstance(item_data, dict):
-                    payload = self._schema_to_payload(item_data)
+                    payload = self.__schema_to_payload(item_data)
                     if payload:
                         payloads[full_ref] = payload
         
@@ -757,7 +767,7 @@ class OASParser:
         
         return resolved_payloads
 
-    def _convert_schema_to_sprkfrm(self,response_map,type_mapping):
+    def __convert_schema_to_sprkfrm(self,response_map,type_mapping):
         converter = OpenAPIToSparkConverter(type_mapping)
         spark_json_schema = converter.convert(response_map)
         return spark_json_schema

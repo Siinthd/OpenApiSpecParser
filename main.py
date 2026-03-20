@@ -7,40 +7,8 @@ from src.REST2JSON.utils.utils import has_data
 
 if __name__ == "__main__":
     
-    payload = [
-        'SABRRUMM', 'VTBRRUMM', 'GAZPRUMM', 'ALFARUMM', 'MOSCRUMM',
-        'RSBNRUMM', 'RUWCRUMM', 'ICBKRUMM', 'KOSKRUMM', 'PARNRUMM',
-        'ABNYRUMM', 'CRYPRUMM', 'TICSRUMM', 'PSBZRUMM', 'TKRBRUMM',
-        'JSNMRUMM', 'MIRBRUMM', 'ELSRUMMXXX', 'RNGBRUMM', 'IRONRUMM',
-        'AVJSRUMM', 'ARESRUMM', 'ALILRUMM', 'ITRORU8Y', 'BOCSRUMM',
-        'DOMRRUMM', 'FORTRUMM', 'GLBKRUMM', 'HDCBRUMM', 'KBKTRUMM',
-        'KREMRUMM', 'LBRURUMM', 'MDMBRUMM', 'MEZHRUMM', 'MOPARUMM',
-        'OLMDRUMM', 'ROYCRUMM', 'RZCBRUMM', 'SBERRUMM', 'SGBZRUMM',
-        'SLAVRUMM', 'SOGZRUMM', 'TATKRUMM', 'TKBKRUMM', 'TKZLRUMM',
-        'TKZVRUMM', 'TRNVRUMM', 'VEFKRUMM', 'VTBKRUMM', 'ZENIRUMM'
-    ]
-    '''
-    payload = [
-    # Москва и область
-    {'locationKey': '294021', 'language': 'ru-ru', 'city': 'Москва','details':True},
-    {'locationKey': '295212', 'language': 'ru-ru', 'city': 'Химки','details':True},
-    {'locationKey': '295554', 'language': 'ru-ru', 'city': 'Мытищи','details':True},
-    {'locationKey': '295837', 'language': 'ru-ru', 'city': 'Королёв','details':True},
-    {'locationKey': '295986', 'language': 'ru-ru', 'city': 'Подольск','details':True},
-    {'locationKey': '296319', 'language': 'ru-ru', 'city': 'Люберцы','details':True},
-    {'locationKey': '296443', 'language': 'ru-ru', 'city': 'Красногорск','details':True},]
 
-
-    '''
-    #payload =  {'display_title': 'Moscow','format': 'json',}
-    #payload =  {"q": "Pskov","pageSize":"4","page": "1"}
-    #payload =  {'market': 'binance','instrument': 'BTC-USDT-VANILLA-PERPETUAL','limit': '100'}
-    #payload =  {'asset': 'ETH','limit': '100'}
-    
-    #conf_WorldBank
-    #config_newsApi
-
-    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_upd.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_WorldBank.yaml'
 
     from omegaconf import OmegaConf
 
@@ -62,11 +30,13 @@ if __name__ == "__main__":
         "type_mapping" :OmegaConf.select(config, "env.json.type_mapping", default={}),
         "json_mapping_override" :OmegaConf.select(config, "proc.src.data.json_mapping_override", default={}),
         })
+    
+    payload = OmegaConf.to_object(OmegaConf.select(config, "proc.src.data.payload", default={}))
 
     rest = REST2JSON(new_config)
-    pprint(rest.get_StructTypeFormatSchema())
-    #result = rest.get_response(payload)
-    #pprint(result)
+    print(rest.get_StructTypeFormatSchema())
+    result = rest.get_response(payload)
+    pprint(result)
   
     #with rest as requesting:
     #    result = result + requesting.get_response('SABRRUMM')
@@ -78,8 +48,8 @@ if __name__ == "__main__":
     #with open('response.json','w',encoding='Utf-8') as f:
     #    json.dump(result,f,indent=1)
 
-    with open('schema_dadata.json','w',encoding='Utf-8') as f:
-       json.dump(rest.get_StructTypeFormatSchema(),f,indent=1)
+    #with open('schema_dadata.json','w',encoding='Utf-8') as f:
+    #   json.dump(rest.get_StructTypeFormatSchema(),f,indent=1)
 
 
     '''
@@ -93,23 +63,4 @@ if __name__ == "__main__":
         with open('schema_inmobile.json','w',encoding='Utf-8') as f:
             json.dump(sch_pars.response_sparkdf,f,indent=1)
     '''
-
-    #from src.REST2JSON.utils.OASParser import OASParser,compare_shapes,build_shape,validate_batch_structurally
-
-
-
-   # schema_shape = build_shape(response)  
-    #pprint(schema_shape)
-   # response_shape = build_shape(rest.entity_schema)
-   # pprint(response_shape)
-
-
-    # При каждом полученном батче
-    #analysis = validate_batch_structurally(
-    #    batch=response,          # List[dict]
-    #    schema_shape=response_shape,
-    #    debug=True
-    #)
-
-    #pprint(analysis)
 
