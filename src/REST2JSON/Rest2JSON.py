@@ -261,7 +261,8 @@ class REST2JSON:
             return None
 
     def get_data(self,data = None):
-        if not data:
+        datatype = type(data).__name__ #Явная проверка на наличие аргумента в вызове метода
+        if datatype == 'NoneType':
             data = self.payload
         if self.__in_context:
             return self.__direct(data)

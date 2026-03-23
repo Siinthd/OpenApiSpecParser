@@ -52,7 +52,7 @@ print(response)
 # возможность докачки данных вне конфигурации
 with REST2JSON(config) as adapter:
 	 # Работа с адаптером
-    response = adapter.get_response()
+    response = adapter.get_data({})
     print(response)
     # Автоматическое закрытие соединений
 ```
@@ -78,23 +78,84 @@ for result in response:
 ## Конфигурация
 
 ### Структура конфигурации
-```python
-config = DictConfig({
-    # OpenAPI спецификация
-    "spec_data": "path/to/spec.yaml",  # или None если используется URL
-    "spec_url": "https://api.example.com/openapi.yaml",  # или None если используется файл
-    "auth_header": {"Authorization": "0123456789abcdef","X-Secret": "{X-Secret}}"}, # авторизация через header (1 приоритет)
-    "auth_body" : {ApiKey: "0123456789abcdef"}, #
-    "name": "operation_name",  # ID операции из OpenAPI
-    "endpoint_url": "/endpoint/{param}",  # URL-эндпоинта
-	"timeout": 15, # таймаут
-    "method": "GET",  # HTTP метод (GET/POST)
-    "pagination": False,  # включить пагинацию
-    "page_param": "page",  # параметр страницы для пагинации
-    "base_url": "https://api.example.com"  # базовый URL API
-    "type_mapping" :{string: "string",number: "long"} , # маппинг типов для преобразования json типы в Spark-типы (Дефолтный)
-    "json_mapping_override" :{string: "string",number: "number"}, # настраиваемый маппинг типов для преобразования json типов
-})
+```yaml
+# обязательный: параметры процесса
+# (основные настройки)
+proc:
+  # обязательный: конфиг источника
+
+  src:
+    # обязательный: наименование источника
+    name: "getEverything" #
+    # обязательный: тип подключения
+    #   определяет, как мы читаем источник
+    conn_type: 'rest2json' 
+    # обязательный: список параметров подключения
+    conn_params:
+      # опциональный: количество ретраев и таймаут
+      #   если не указать -- 1 ретрай и какой-нибудь таймаут
+      retries: 3
+      timeout: 30  
+
+      # обязательный: спецификация сервиса
+      # (хотя бы один из двух должен быть указан и заполнен) 
+      #   отсюда берём схемы реплаев,
+      #     + url для запроса, если возможно
+
+      spec_url: 'https://dadata.ru/files/openapi/suggestions.yml'
+      spec_data: 
+      # опциональный: адрес для запроса 
+
+      base_url: "https://suggestions.dadata.ru/suggestions"
+      # опциональный: ep+method для случаев, когда сервис не использует operation_id
+      endpoint_url: "/api/4_1/rs/suggest/bank"
+      method: 'post'
+      # опциональный: перебор страниц на сервере
+      #   игнорим, если параметра нет,
+      pagination:
+        # обязательный: включение
+        enabled: false
+        # обязательный: название параметра с номером страницы
+        page_param: 'page'
+        # обязательный: название параметра с размером страницы
+        pagesize_param: 'per_page'
+        # обязательный: запрашиваемый размер страницы
+        pagesize_val: 100
+        # обязательный: название параметра с общим числом записей
+        pagecnt_param: "total_results"
+
+    # обязательный: конфиг данных (схема, фильтры, etc)
+    data:
+      #   TODO: использовать динамическую генерацию запросов по спеке,
+      #     и как-то угадывать, куда какие параметры писать -- нецелесообразно
+      payload: 
+              ['SABRRUMM', 'VTBRRUMM',]
+	# опциональный: свой маппинг типов
+	  json_mapping_override:
+	  	"null": "null"
+      
+# обязательный: данные для авторизации
+# содержат только логины, токены, пароли
+auth:
+  # источник (extract)
+  src:
+    header: # авторизация через хедер (как в dadata)
+      "Authorization":  "Token "
+      "X-Secret": ""
+      #X-Secret: "64545645"
+    body: # авторизация через параметр в теле (как в random.org)  
+      #- "API_KEY: 12434547985675"
+env:
+	# опциональный:  маппинг типов данных (при конвертация в StrucType-json)
+  json:
+    type_mapping:
+      int32: integer
+      int64: long
+      float: float
+      double: double
+      date: string
+      date-time: string
+      binary: binary
 ```
 
 
@@ -106,7 +167,7 @@ config = DictConfig({
 
 #### Методы
 
-##### `get_response(data=None)`
+##### `get_data(data=None)`
 
 Основной метод для выполнения запросов. Автоматически управляет контекстом.
 
@@ -114,10 +175,10 @@ config = DictConfig({
 
 - `data` - Данные для запроса. Может быть:
     
-    - `None` - запрос без параметров
-    - `dict` - одиночный запрос
-    - `list[dict]` - пакет запросов
-    - `str/int` - одиночное значение (будет преобразовано в параметр required)
+    - `None` - запрос без параметров,в таком случае данные для запроса берутся из конфигурации (раздел proc.src.data.payload)
+    - `dict` - одиночный запрос (может быть пустым - {})
+    - `list[dict]` - пакет запросов (может быть пустым - [])
+    - `str/int` - одиночное значение (будет преобразовано в параметр required)(может быть пустым - '')
         
 
 **Возвращает:** JSON ответ от API или список ответов при пакетной обработке.
@@ -202,6 +263,7 @@ requestBody:
 
 | Тип входных данных   | Результат                                          |
 | -------------------- | -------------------------------------------------- |
+| `{}`,`[]`,`''`       | `[dict]` - одиночный запрос(сервер не ждет данных) |
 | `dict`               | `[dict]` - одиночный запрос                        |
 | `list[dict]`         | `list[dict]` - пакет запросов                      |
 | `list` (не словарей) | Если required имеет n параметров: `[{query: value_1}...{query: value_n}]` |

@@ -29,7 +29,7 @@ if __name__ == "__main__":
     
     
     with rest as requesting:
-        rest_res = rest.get_data('HDCBRUMM')
+        rest_res = rest.get_data(42)
         pprint(rest_res)
         result = result + rest_res
         
