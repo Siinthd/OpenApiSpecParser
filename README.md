@@ -27,29 +27,20 @@ pip install git+https://github.com/Siinthd/Rest2JSON.git
 ### Простой запрос
 ```Python
 from rest2json import REST2JSON
-from omegaconf import DictConfig
 
-  
+config_file = 'C:/Users/kdenis/Documents/Work/configs/config_WorldBank.yaml'
 
-config = DictConfig({
-    "spec_data": "openapi.yaml",
-    "spec_url": None,
-    "auth_header": {"Authorization": "0123456789abcdef","X-Secret": "{X-Secret}}"}, 
-    "auth_body" : {ApiKey: "0123456789abcdef"}, 
-    "name": "getUser",
-    "endpoint_url": "/users/{userId}",
-    "method": "GET",
-	"timeout": 15,
-    "pagination": False,
-    "page_param": None,
-    "base_url": "https://api.example.com",
-    "type_mapping" :{string: "string",number: "long"} ,
-    "json_mapping_override" :{string: "string",number: "number"},
-})
+import yaml 
+
+with open(config_file) as stream:
+    try:
+         config = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
 
 
 adapter = REST2JSON(config)
-response = adapter.get_response({"query": 123})
+response = adapter.get_data()
 print(response)
 
   
@@ -58,16 +49,17 @@ print(response)
 
 ### Использование с контекстным менеджером
 ```Python
+# возможность докачки данных вне конфигурации
 with REST2JSON(config) as adapter:
 	 # Работа с адаптером
-    response = adapter.get_response({"query": 123})
+    response = adapter.get_response()
     print(response)
     # Автоматическое закрытие соединений
 ```
 
 ### Пакетная обработка
 ```Python
-payload = [{"query": 123}, {"query": 456}, {"query": 789}] #API-сервис ожидает параметр c именем query
+payload = [{"query": 123}, {"query": 456}, {"query": 789}] # API-сервис ожидает параметр c именем query
 
 with REST2JSON(config) as adapter:
     results = adapter.get_response(payload)

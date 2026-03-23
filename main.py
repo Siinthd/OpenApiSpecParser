@@ -8,7 +8,7 @@ from src.REST2JSON.utils.utils import has_data
 if __name__ == "__main__":
     
 
-    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_WorldBank.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata.yaml'
 
     import yaml 
 
@@ -26,12 +26,14 @@ if __name__ == "__main__":
     print(rest.get_StructTypeFormatSchema())
     result = rest.get_data()
     pprint(result)
-  
-    #with rest as requesting:
-    #    result = result + requesting.get_response('SABRRUMM')
-    #    rest_res = rest.get_response(payload)
-    #    result = result + rest_res
-
+    
+    
+    with rest as requesting:
+        rest_res = rest.get_data('HDCBRUMM')
+        pprint(rest_res)
+        result = result + rest_res
+        
+    pprint(result)
 
     #import json
     #with open('response.json','w',encoding='Utf-8') as f:

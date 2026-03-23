@@ -260,11 +260,13 @@ class REST2JSON:
         except Exception as e:
             return None
 
-    def get_data(self):
+    def get_data(self,data = None):
+        if not data:
+            data = self.payload
         if self.__in_context:
-            return self.__direct(self.payload)
+            return self.__direct(data)
         else:
-            payload = self._prepare_payload(self.payload)
+            payload = self._prepare_payload(data)
             self.__enter__()
             try:
                 results = self._execute(payload)
