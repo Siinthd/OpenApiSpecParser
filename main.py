@@ -10,32 +10,21 @@ if __name__ == "__main__":
 
     config_file = 'C:/Users/kdenis/Documents/Work/configs/config_WorldBank.yaml'
 
-    from omegaconf import OmegaConf
+    import yaml 
 
-
-    config = OmegaConf.load(config_file)
-    new_config = OmegaConf.create({
-        "name": OmegaConf.select(config, "proc.src.name", default=None),
-        "auth_header": OmegaConf.select(config, "auth.src.header", default={}),
-        "auth_body" : OmegaConf.select(config, "auth.src.body", default={}),
-        "endpoint_url": OmegaConf.select(config, "proc.src.conn_params.endpoint_url", default=None),
-        "method": OmegaConf.select(config, "proc.src.conn_params.method", default=None),
-        "timeout": OmegaConf.select(config, "proc.src.conn_params.timeout", default=None),
-        "retries": OmegaConf.select(config, "proc.src.conn_params.retries", default=None),
-        "pagination": OmegaConf.select(config, "proc.src.conn_params.pagination.enabled", default=None),
-        "page_param" : OmegaConf.select(config, "proc.src.conn_params.pagination.page_param", default=None),
-        "spec_url": OmegaConf.select(config, "proc.src.conn_params.spec_url", default=None),
-        "spec_data": OmegaConf.select(config, "proc.src.conn_params.spec_data", default=None),
-        "base_url": OmegaConf.select(config, "proc.src.conn_params.base_url", default=None),
-        "type_mapping" :OmegaConf.select(config, "env.json.type_mapping", default={}),
-        "json_mapping_override" :OmegaConf.select(config, "proc.src.data.json_mapping_override", default={}),
-        })
+    with open(config_file) as stream:
+        try:
+            config = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+        
     
-    payload = OmegaConf.to_object(OmegaConf.select(config, "proc.src.data.payload", default={}))
+    
+    #payload = OmegaConf.to_object(OmegaConf.select(config, "proc.src.data.payload", default={}))
 
-    rest = REST2JSON(new_config)
+    rest = REST2JSON(config)
     print(rest.get_StructTypeFormatSchema())
-    result = rest.get_response(payload)
+    result = rest.get_data()
     pprint(result)
   
     #with rest as requesting:

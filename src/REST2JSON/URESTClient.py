@@ -40,7 +40,7 @@ class ClientBase:
         response.raise_for_status()
         return response.json()
 
-class URESTAdapter():
+class URESTClient():
     
     def __init__(self, config: Any, token: Optional[str] = None, base_url: Optional[str] = None,timeout = None):
         """

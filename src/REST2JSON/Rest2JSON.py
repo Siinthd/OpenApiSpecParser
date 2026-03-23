@@ -3,10 +3,9 @@
 #на вход получает конфигурацию - разбивает ее,выбирает стратегию,по возможности - внешняя оценка результата для контроля загрузки
 import os
 from urllib.parse import urlparse
-from omegaconf import DictConfig, OmegaConf
 from .utils.OASParser import OASParser
 from .utils.utils import has_data
-from .URESTAdapter import URESTAdapter
+from .URESTClient import URESTClient
 
 class ParserAdapter(OASParser):
     def __init__(self,OpName,endpoint_url,method,spec):
@@ -21,7 +20,7 @@ class ParserAdapter(OASParser):
             self._parser = OASParser(self.OpName,self.endpoint_url,self.method,self.spec)
         return self._parser
 
-class ClientAdapter(URESTAdapter):
+class ClientAdapter(URESTClient):
     def __init__(self, entity,extra_headers,base_url,timeout):
         super().__init__(entity, extra_headers,base_url,timeout)
     
@@ -35,10 +34,22 @@ class ClientAdapter(URESTAdapter):
 
 class REST2JSON:
     def __init__(self,
-                Omegaconfig_stream: DictConfig = None):
-        #Загружаем объект DictConfig
-        self.Omegaconfig_stream = Omegaconfig_stream
-        self.OpenAPISpecYAML,self.OpenAPISpecYAMLURL,self.auth_header,self.auth_body,self.OpName,self.endpoint_url,self.method,self.timeout,self.paginate,self.page_param,self.type_mapping = self.__load_configuration(Omegaconfig_stream)
+                config: dict = None):
+        #Загружаем конфигурацию
+        (self.payload,
+         self.base_url,
+         self.OpenAPISpecYAML,
+         self.OpenAPISpecYAMLURL,
+         self.auth_header,
+         self.auth_body,
+         self.OpName,
+         self.retries,
+         self.endpoint_url,
+         self.method,
+         self.timeout,
+         self.paginate,
+         self.page_param,
+         self.type_mapping) = self.__load_configuration(config)
         #Получаем спецификацию
         self.spec = self._load_specification_(self.OpenAPISpecYAML,self.OpenAPISpecYAMLURL)
         #Загрузка адаптера
@@ -46,7 +57,7 @@ class REST2JSON:
         self.__parser_adapter = ParserAdapter(self.OpName,self.endpoint_url,self.method,self.spec).get_parser()
         self.entity_config = self.__parser_adapter.request
         
-        self.base_url = self.__getbase_url(Omegaconfig_stream,self.entity_config)
+        self.base_url = self.__getbase_url(self.entity_config)
         #self.Tokens = self.Tokens_MOCK(self.TokensFilename,self.base_url)
         self.__client_adapter = ClientAdapter(self.entity_config,self.auth_header,self.base_url,self.timeout)
         self.__in_context = False  # доп флаг
@@ -109,27 +120,47 @@ class REST2JSON:
         except yaml.YAMLError as e:
             return None
         
-    def __getbase_url(self,config_input,entity_config):
+    def __getbase_url(self,entity_config):
         base_url = entity_config.get("base_url",None)
-        if OmegaConf.select(config_input, "base_url", default=None):
-            return config_input.base_url
+        if self.base_url:
+            return self.base_url
         elif base_url:
             return base_url
         else:
             return ''
 
-    def __load_configuration(self,config_input):
-        auth_header,auth_body = {},{}
-        if isinstance(config_input, DictConfig):
-            if config_input.auth_header:
-                auth_header = OmegaConf.to_object(config_input.auth_header)
-            if config_input.auth_body:
-                auth_body = OmegaConf.to_object(config_input.auth_body)
-            #############обработка маппинга типов
-            type_mapping = OmegaConf.merge(config_input.type_mapping, config_input.json_mapping_override)
-            return config_input.spec_data,config_input.spec_url,auth_header,auth_body,config_input.name,config_input.endpoint_url,config_input.method,config_input.timeout,config_input.pagination,config_input.page_param,type_mapping
-        else:
-            return None    
+    def __load_configuration(self,config):
+        try:
+            proc = config.get('proc',{})
+            env = config.get('env',{})
+            auth = config.get('auth',{})
+            src = proc.get('src',{})
+            proc_conn_params = src.get('conn_params',{})
+            conn_type = src.get('conn_type',{})
+            auth_header,auth_body = auth.get('src',{}).get('header',{}),{}
+            if not auth_header:
+                auth_body = auth.get('src',{}).get('body',{})
+            src_data = proc.get('src',{}).get('data',{})
+            name = src.get('name',{})
+            type_mapping = env.get('json',{}).get('type_mapping',{})
+            type_mapping.update(src_data.get('json_mapping_override',{}))
+            payload = src_data.get('payload',None)
+            if proc_conn_params:
+                endpoint_url = proc_conn_params.get('endpoint_url',None)
+                method  = proc_conn_params.get('method',None)
+                timeout = proc_conn_params.get('timeout',None)
+                retries = proc_conn_params.get('retries',None)
+                pagination  = proc_conn_params.get('pagination',{}).get('enabled',None)
+                page_param  = proc_conn_params.get('pagination',{}).get('page_param',None)
+                spec_url    = proc_conn_params.get('spec_url',None)
+                spec_data   = proc_conn_params.get('spec_data',None)
+                base_url    = proc_conn_params.get('base_url',None)
+            if None in (proc,src,name,conn_type,((endpoint_url and base_url) or name),(spec_url or spec_data),pagination,auth):
+                    raise ('Отсутствует обязазательный параметр конфигурации (один из списка): proc,src,name,conn_type,(endpoint_url and base_url) or name),(spec_url или spec_data),pagination,auth')
+            return payload,base_url,spec_data,spec_url,auth_header,auth_body,name,retries,endpoint_url,method,timeout,pagination,page_param,type_mapping
+        except Exception as e:
+            print(e)
+            return None
     
     def get_StructTypeFormatSchema(self):
         if self.__parser_adapter is None:
@@ -229,11 +260,11 @@ class REST2JSON:
         except Exception as e:
             return None
 
-    def get_response(self, data=None):
+    def get_data(self):
         if self.__in_context:
-            return self.__direct(data)
+            return self.__direct(self.payload)
         else:
-            payload = self._prepare_payload(data)
+            payload = self._prepare_payload(self.payload)
             self.__enter__()
             try:
                 results = self._execute(payload)
