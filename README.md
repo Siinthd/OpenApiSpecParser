@@ -18,7 +18,7 @@
 
 ```bash
 pip install git+https://github.com/Siinthd/Rest2JSON.git
-pip install REST2JSON
+pip install REST2JSON --index-url {mirror}
 ```
 
 
