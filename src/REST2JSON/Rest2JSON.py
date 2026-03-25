@@ -4,7 +4,6 @@
 import os
 from urllib.parse import urlparse
 from .utils.OASParser import OASParser
-from .utils.utils import has_data
 from .URESTClient import URESTClient
 
 class ParserAdapter(OASParser):
@@ -109,7 +108,7 @@ class REST2JSON:
                     abs_path = os.path.abspath(clean_path)
                     # 4. Открытие файла
                     if os.path.isfile(abs_path) and os.access(abs_path, os.R_OK):
-                        response = open(abs_path, 'r').read()
+                        response = open(abs_path, 'r', encoding='utf-8').read()
                 else:
                     return None 
                 data = yaml.safe_load(response)

@@ -2,13 +2,13 @@ from pprint import pprint
 import json
 from src.REST2JSON.Rest2JSON import REST2JSON
 from src.REST2JSON.utils.OASParser import OASParser
-from src.REST2JSON.utils.utils import has_data
+
 
 
 if __name__ == "__main__":
     
 
-    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_coindesk.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dummy.yaml'
 
     import yaml 
 
@@ -23,15 +23,17 @@ if __name__ == "__main__":
     rest = REST2JSON(config)
     
 
-    pprint(rest.get_schema())
+    #pprint(rest.get_schema())
     
     
-    #import json
-    #with open('response.json','w',encoding='Utf-8') as f:
-    #    json.dump(result,f,indent=1)
+    import json
+    with open('schema_raw.json','w',encoding='Utf-8') as f:
+        json.dump(rest.get_schema(True),f,indent=1)
+    with open('schema.json','w',encoding='Utf-8') as f:
+        json.dump(rest.get_schema(),f,indent=1)
 
-    with open('answer.json','w',encoding='Utf-8') as f:
-      json.dump(rest.get_data(),f,indent=1)
+    #with open('answer.json','w',encoding='Utf-8') as f:
+    #  json.dump(rest.get_data(),f,indent=1)
 
 
     

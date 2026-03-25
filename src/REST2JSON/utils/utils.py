@@ -55,6 +55,48 @@ class OpenAPIToSparkConverter:
             return self._convert_node(node[0], f"{path}[0]")
         return "string"
     
+    def _merge_all_of(self, schemas: List[Dict]) -> Dict[str, Any]:
+        """
+        Объединяет несколько схем из allOf в одну.
+        Все схемы уже должны быть разрешены (без $ref).
+        """
+        merged = {}
+        for schema in schemas:
+            # Если внутри allOf есть вложенный allOf, объединяем его рекурсивно
+            if "allOf" in schema:
+                schema = self._merge_all_of(schema["allOf"])
+            
+            # Объединяем properties
+            if "properties" in schema:
+                merged.setdefault("properties", {}).update(schema["properties"])
+            
+            # Объединяем required (убираем дубли)
+            if "required" in schema:
+                merged.setdefault("required", []).extend(schema["required"])
+                merged["required"] = list(set(merged["required"]))
+            
+            # Копируем остальные поля (type, nullable, enum, format, и т.д.)
+            # При конфликте последний встреченный имеет приоритет
+            for key, value in schema.items():
+                if key not in ["properties", "required", "allOf"]:
+                    merged[key] = value
+        
+        return merged
+    
+    def _merge_schemas_union(self, schemas: List[Dict], path: str) -> List[Any]:
+        """
+        Конвертирует список альтернативных схем (oneOf/anyOf) в список сконвертированных вариантов.
+        """
+        result = []
+        for i, schema in enumerate(schemas):
+            # Если внутри есть allOf, сначала объединяем его
+            if "allOf" in schema:
+                schema = self._merge_all_of(schema["allOf"])
+            converted = self._convert_node(schema, f"{path}.union[{i}]")
+            result.append(converted)
+        return result
+    
+
     def _handle_dict_node(self, node: Dict, path: str) -> Any:
         """Обрабатывает узлы-словари"""
         
@@ -65,10 +107,20 @@ class OpenAPIToSparkConverter:
         if "$ref" in node:
             return "string"  # В реальном проекте нужно резолвить ссылки
         
-        # Обработка комбинированных схем
-        for combo in ["allOf", "anyOf", "oneOf"]:
-            if combo in node and node[combo]:
-                return self._convert_node(node[combo][0], f"{path}.{combo}[0]")
+        #Требует большого количества времени для обработки!
+
+        # Обработка комбинированных схем - allOf
+
+        if "allOf" in node and node["allOf"]:
+            merged = self._merge_all_of(node["allOf"])
+            return self._convert_node(merged, path)
+        
+
+         # anyOf / oneOf пока оставляем как было (берём первый вариант) пока что
+        if "anyOf" in node and node["anyOf"]:
+            return self._merge_schemas_union(node["anyOf"], path)
+        if "oneOf" in node and node["oneOf"]:
+            return self._merge_schemas_union(node["oneOf"], path)
         
         # Обработка в зависимости от типа
         if node_type == "array" or "items" in node:
@@ -162,7 +214,6 @@ class OpenAPIToSparkConverter:
         
         return spark_type
     
-    @staticmethod
     def extract_response_schema(openapi_spec: Dict[str, Any], 
                                path: str, 
                                method: str,
@@ -197,109 +248,3 @@ class OpenAPIToSparkConverter:
             return None
 
 
-
-#Отложено
-def skeletonize(obj, is_schema=False):
-    if obj is None:
-        return "null"
-    
-    if isinstance(obj, dict):
-        is_collection = False
-        if not is_schema and len(obj) > 1:
-            dict_values = [v for v in obj.values() if isinstance(v, dict)]
-            if len(dict_values) > len(obj.values()) / 2:
-                is_collection = True
-        
-        if is_collection:
-            first_key = next(iter(obj))
-            return {"collection": skeletonize(obj[first_key], is_schema)}
-        
-        result = {}
-        for key, value in obj.items():
-            if key in ['facets', 'geo_regions'] and isinstance(value, dict) and not value:
-                continue
-            result[key] = skeletonize(value, is_schema)
-        return result if result else "object"
-    
-    elif isinstance(obj, list):
-        if len(obj) > 0:
-            return {"array": skeletonize(obj[0], is_schema)}
-        else:
-            return {"array": "empty"}
-    
-    else:
-        if isinstance(obj, str):
-            return "string"
-        elif isinstance(obj, (int, float)):
-            return "number"
-        elif isinstance(obj, bool):
-            return "boolean"
-        else:
-            return type(obj).__name__
-
-
-def compare_skeletons(skel1, skel2, path=""):
-    if skel1 is None and skel2 is None:
-        return 1.0
-    if skel1 is None or skel2 is None:
-        return 0.0
-    
-    if isinstance(skel1, str) and isinstance(skel2, str):
-        if skel1 == skel2:
-            return 1.0
-        if skel1 in ("int", "float", "number") and skel2 in ("int", "float", "number"):
-            return 1.0
-        if skel1 == "null" or skel2 == "null":
-            return 0.5
-        return 0.0
-    
-    if isinstance(skel1, str) or isinstance(skel2, str):
-        return 0.3
-    
-    if isinstance(skel1, dict) and isinstance(skel2, dict):
-        special_keys = {"array", "collection", "object"}
-        
-        keys1 = set(skel1.keys())
-        keys2 = set(skel2.keys())
-        
-        for key in special_keys:
-            if key in keys1 and key in keys2:
-                return compare_skeletons(skel1[key], skel2[key])
-        
-        all_keys = keys1 | keys2
-        
-        if not all_keys:
-            return 1.0
-        
-        total_score = 0.0
-        matched_keys = 0
-        
-        for key in all_keys:
-            if key in keys1 and key in keys2:
-                score = compare_skeletons(skel1[key], skel2[key])
-                total_score += score
-                matched_keys += 1
-            else:
-                total_score += 0.2
-                matched_keys += 1
-        
-        return total_score / matched_keys if matched_keys > 0 else 0.0
-    
-    return 0.0
-
-
-def has_data(response, schema, threshold=0.6):
-    data_skeleton = skeletonize(response)
-    schema_skeleton = skeletonize(schema, is_schema=True)
-    similarity = compare_skeletons(data_skeleton, schema_skeleton)
-    
-    def has_container(skel):
-        if isinstance(skel, dict):
-            if "array" in skel or "collection" in skel:
-                return True
-            for value in skel.values():
-                if has_container(value):
-                    return True
-        return False
-    
-    return similarity >= threshold and has_container(data_skeleton)
