@@ -73,7 +73,12 @@ class URESTClient():
             base = self.base_url or ''
             url_template = f"{base}{self.config.get('url', '')}"
             try:
-                url = url_template.format(**data)
+                if isinstance(data, dict): 
+                    url = url_template.format(**data)
+                else: #просочилась строка
+                    import json
+                    data_dict = json.loads(data)
+                    url = url_template.format(data_dict)
             except KeyError:
                 url = url_template
             

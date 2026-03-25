@@ -161,16 +161,15 @@ class REST2JSON:
         except Exception as e:
             print(e)
             return None
-    
-    def get_StructTypeFormatSchema(self):
+        
+    def get_schema(self,raw:bool = False):
+        if not isinstance(raw,bool):
+            raise TypeError('Неподдерживаемый тип данных')
         if self.__parser_adapter is None:
             return None
+        if raw:
+            return self.__parser_adapter.get_response_map()
         return self.__parser_adapter.getStructTypeSchema(self.type_mapping)
-    
-    def get_JSONTypeschema(self):
-        if self.__parser_adapter is None:
-            return None
-        return self.__parser_adapter.get_response_map()
     
     def _prepare_payload(self, data):
         #TODO 
@@ -194,7 +193,10 @@ class REST2JSON:
                 else:
                     print('Требуется явно указать параметр(ы) запроса')
         elif data:
-            payload = [{required[0]: value} for value in [data]]
+            if required:
+                payload = [{required[0]: value} for value in [data]]
+            else:
+                payload = [data]
         else: # Если запрос - это просто обращение по ссылке
             payload = data     
         if not self.auth_header and self.auth_body: #Добавляем пароль к сообщению , 1 приоритет - header

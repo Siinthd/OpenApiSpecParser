@@ -38,14 +38,21 @@ with open(config_file) as stream:
     except yaml.YAMLError as exc:
         print(exc)
 
-
+#Иницализация адаптера, в этот момент происходит чтение/конфигурации,скачивание спецификации и ее парсинг
 adapter = REST2JSON(config)
-response = adapter.get_data()
-print(response)
-
-  
+# get_schema() возвращает схему данных в <class 'dict'> - формате
+#   по умолчанию (raw = False) вернет Spark dataframe ddl
+#   (raw = True) возвращает структуру ответа без обработки (не подходит,чтобы создать dataframe)
+schema = adapter.get_schema(raw = False)
+# get_data() возвращает данные ответов с сервера в формате [<class 'dict'>]
+#   по умолчанию (пустые скобки), payload берется из конфигурации
+data = adapter.get_data()
+#   При наличии payload (get_data(payload)) у сервера запрашиваются конкретные в payload данные.
+payload = [{"query": 123}, {"query": 456}, {"query": 789}]
+results = adapter.get_response(payload)
 
 ```
+
 
 ### Использование с контекстным менеджером
 ```Python
@@ -67,7 +74,7 @@ with REST2JSON(config) as adapter:
         print(result)
 
 #или
-adapter = REST2JSON(payload)
+adapter = REST2JSON(config)
 response = adapter.get_response(payload)
 for result in response:
         print(result)
@@ -159,7 +166,7 @@ env:
 ```
 
 
-## API Reference
+## Class Reference
 
 ### Класс `REST2JSON`
 
@@ -183,13 +190,9 @@ env:
 
 **Возвращает:** JSON ответ от API или список ответов при пакетной обработке.
 
-##### `get_StructTypeFormatSchema()`
+##### `get_schema(raw = False)`
 
-Возвращает схему структуры данных из OpenAPI спецификации (Spark-формат).
-
-##### `get_JSONTypeschema()`
-
-Возвращает JSON Schema ответа из спецификации (as is, с раскрытием #ref).
+**Возвращает:**  схема структуры данных из OpenAPI спецификации при raw = False возвращает схему в Spark-формате.
 
 
 ## Обработка payload
