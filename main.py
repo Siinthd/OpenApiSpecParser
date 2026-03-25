@@ -44,23 +44,5 @@ if __name__ == "__main__":
 
     #     with open('schema_inmobile.json','w',encoding='Utf-8') as f:
     #         json.dump(sch_pars.response_sparkdf,f,indent=1)
-    
 
-    # def cached(n):
-    #     def cached_multiplier(x):
-    #         return x * n
-    #     return cached_multiplier
-
-    # def slow_function(x, y=2):
-    #     print("Вычисляю...")
-    #     return x * y
-
-    # cached_slow = cached(slow_function)
-    # print(cached_slow(3))      # Вычисляю... 6
-    # print(cached_slow(3))      # 6 (без "Вычисляю...")
-    # print(cached_slow(3, y=3)) # Вычисляю... 9
-    # print(cached_slow(3, y=2)) # 6 (из кэша)
-
-
-       
         
