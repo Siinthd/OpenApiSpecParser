@@ -200,7 +200,7 @@ class REST2JSON:
             payload = data     
         if not self.auth_header and self.auth_body: #Добавляем пароль к сообщению , 1 приоритет - header
             if payload:
-                payload = [value.update(self.auth_body) for value in [data]] # на этот момент payload уже список словарей
+                payload = [{**value, **self.auth_body} for value in payload] # на этот момент payload уже список словарей
             else:
                 payload = self.auth_body
         return payload
@@ -302,9 +302,9 @@ class REST2JSON:
         '''
         if not data:
             try:
-                response = self.__client_adapter.execute()  # Вызов без данных
-                if self._is_valid_response(response = response,debug=True):
-                    results.append(response)
+                content,header = self.__client_adapter.execute()  # Вызов без данных
+                if self._is_valid_response(response = content,debug=True):
+                    results.append(content)
                     return results
                 return []
             except Exception as e:
@@ -314,9 +314,9 @@ class REST2JSON:
         else:
             for item in data:
                 try:
-                    response = self.__client_adapter.execute(item)
-                    if self._is_valid_response(response = response,debug=True) or True: #вынести в контроль загрузки
-                         results.append(response)
+                    content,header = self.__client_adapter.execute(item)
+                    if self._is_valid_response(response = content,debug=True) or True: #вынести в контроль загрузки
+                         results.append(content)
                 except Exception as e:
                     print(f"Error processing {item}: {e}")        
         return results

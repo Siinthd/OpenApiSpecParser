@@ -3,8 +3,6 @@ from typing import Any, List, Dict, Optional,Tuple,Union
 class OpenAPIToSparkConverter:
     """Конвертер OpenAPI схем в Spark StructType JSON формат без зависимости от PySpark"""
 
-
-
     def __init__(self,mapping_type: Dict[str, Any]):
         self.type_mapping = mapping_type or {}
 
@@ -83,45 +81,46 @@ class OpenAPIToSparkConverter:
         
         return merged
     
-    def _merge_schemas_union(self, schemas: List[Dict], path: str) -> List[Any]:
+    def _collect_schemas(self, schemas: List[Dict], path: str) -> List[Any]:
         """
-        Конвертирует список альтернативных схем (oneOf/anyOf) в список сконвертированных вариантов.
+        обработка кейса oneOf/anyOf в список .
         """
         result = []
         for i, schema in enumerate(schemas):
             # Если внутри есть allOf, сначала объединяем его
-            if "allOf" in schema:
-                schema = self._merge_all_of(schema["allOf"])
+            #if "allOf" in schema:
+            #    schema = self._merge_all_of(schema["allOf"])
             converted = self._convert_node(schema, f"{path}.union[{i}]")
+            #место под если any/oneof внутри 
             result.append(converted)
         return result
     
-
     def _handle_dict_node(self, node: Dict, path: str) -> Any:
         """Обрабатывает узлы-словари"""
-        
+
         # Получаем тип узла
         node_type = node.get("type")
-        
+
         # Обработка ссылок
         if "$ref" in node:
             return "string"  # В реальном проекте нужно резолвить ссылки
-        
-        #Требует большого количества времени для обработки!
 
-        # Обработка комбинированных схем - allOf
+        # Обработка комбинированных схем
+        for combo in ["allOf", "anyOf", "oneOf"]:
+            if combo in node and node[combo]:
+                return self._convert_node(node[combo][0], f"{path}.{combo}[0]")
+            
 
-        if "allOf" in node and node["allOf"]:
-            merged = self._merge_all_of(node["allOf"])
-            return self._convert_node(merged, path)
-        
+        # if "allOf" in node and node["allOf"]:
+        # #merged = self._merge_all_of(node["allOf"])
+        # #return self._convert_node(merged, path)
+        #     return {"allOf" :self._collect_schemas(node["allOf"], path)}
+        #  # anyOf / oneOf пока оставляем как было (берём первый вариант) пока что
+        # if "anyOf" in node and node["anyOf"]:
+        #     return {"anyOf" : self._collect_schemas(node["anyOf"], path)}
+        # if "oneOf" in node and node["oneOf"]:
+        #     return {"oneOf" : self._collect_schemas(node["oneOf"], path)}
 
-         # anyOf / oneOf пока оставляем как было (берём первый вариант) пока что
-        if "anyOf" in node and node["anyOf"]:
-            return self._merge_schemas_union(node["anyOf"], path)
-        if "oneOf" in node and node["oneOf"]:
-            return self._merge_schemas_union(node["oneOf"], path)
-        
         # Обработка в зависимости от типа
         if node_type == "array" or "items" in node:
             return self._handle_array_type(node, path)
@@ -130,6 +129,7 @@ class OpenAPIToSparkConverter:
         else:
             # Примитивный тип
             return self._handle_primitive_type(node, path)
+        
     
     def _handle_array_type(self, node: Dict, path: str) -> Dict[str, Any]:
         """Обрабатывает массив"""

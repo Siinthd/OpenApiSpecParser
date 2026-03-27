@@ -32,13 +32,13 @@ class ClientBase:
         """GET request to Dadata API"""
         response = self._client.get(url, params=data)
         response.raise_for_status()
-        return response.json()
+        return response.json(),response.headers
 
     def _post(self, url, data,headers = None,timeout = None):
         """POST request to Dadata API"""
         response = self._client.post(url, json=data)
         response.raise_for_status()
-        return response.json()
+        return response.json(),response.headers
 
 class URESTClient():
     
