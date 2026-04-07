@@ -10,74 +10,97 @@ from typing import Any
 
 
 class OASParser:
-    def __init__(self, OpName:str = None,endpoint_url:str= None,method:str= None,loaded_spec:dict = None):
+    def __init__(self, OpName:str = None,endpoint_url:str= None,method:str= None,schema_infer_fallback:bool = True,loaded_spec:dict = None):
         self.operation_Name = copy.copy(OpName)
         self.target_endpoint = copy.copy(endpoint_url)
         self.target_method = copy.copy(method)
+        self.schema_infer_fallback = copy.copy(schema_infer_fallback)
         self.spec = copy.deepcopy(loaded_spec)
-        self.base_url = self.__getbaseurl(self.spec)
-        #Парсим документ,формируем справочник
+        self.base_url = self.__getbaseurl(self.spec) #выполнять если
         self.post = self.__parse_specification(self.__getEndpoint(self.spec))
-        #Версия словаря для REST2JSON
-        self.request = self.__transform_spec_to_requests(self.__resolve_refs_in_operation(copy.deepcopy(self.post),self.__extract_schemas_with_payloads(copy.deepcopy(self.spec))))
-        #Версия словаря для OneETL
-        self.response_map = self.__resolve_refs_in_operation(copy.deepcopy(self.post),self.__extract_schemas(copy.deepcopy(self.spec))).get('response',None)
         
+        
+        ###Формируется структура без добавления кастомных данных
+        #json для content и header
+        self.endpoint_section = self.__resolve_refs_in_operation(copy.deepcopy(self.post),self.__extract_schemas(copy.deepcopy(self.spec)))
+        self.request = self.__transform_spec_to_requests(self.endpoint_section)
+        self.response_map = self.endpoint_section.get('response',None)
+        self.headers_map = self.form_header(self.endpoint_section.get('headers',None))
 
 
-    ##_parse_specification теперь работает с уровнем ниже
-    #Я ищу по endpoint, если endpoint пустой,то пытаюсь через OperationID
-    #Поскольку операции разнородные - нужно придумать метод обхода сначала 
+    def form_header(self, header_raw: dict): #
+        if header_raw:
+            result = {'type': 'object', 'properties': None}
+            result['properties'] = header_raw
+            return result
+        return None
+
 
     def getStructTypeSchema(self,type_mapping):
         return self.__convert_schema_to_sprkfrm(copy.deepcopy(self.response_map),type_mapping)
     
+    def getStructTypeHeader(self,type_mapping):
+        if self.headers_map:
+            return self.__convert_schema_to_sprkfrm(copy.deepcopy(self.headers_map),type_mapping)
+        return {}
+    
     def getSpecification(self):
         return self.spec
     
-    def __findendpointbypath(self,spec_dict: dict,key) -> dict:
+    def __findendpointbypath(self,spec_dict: dict) -> dict:
         endpoints = spec_dict.get('paths', {})
-        endpoint =  endpoints.get(key,None)
+        endpoint =  endpoints.get(self.target_endpoint,None)
         if endpoint:
-            for key,value in endpoint.items():
-                if key == self.target_method:
-                    return endpoint
+            for metod,value in endpoint.items():
+                if metod == self.target_method:
+                    return {metod:value}#берем нужный метод
         return None
         
 
-    def __findendpointbyOpId(self,spec_dict: dict,key) -> dict:
+    def __findendpointbyOpId(self,spec_dict: dict) -> dict:
         for path, methods in spec_dict.get('paths', {}).items():
             for method_name, method_details in methods.items():
                 operation_id = method_details.get('operationId',None)
-                if operation_id == key:
+                if operation_id == self.operation_Name:
                     self.target_endpoint = path
-                    return {method_name:method_details}
+                    return {method_name:method_details} #возвращается весь эндпоинт
         return None
 
     def __getEndpoint(self,spec:dict) -> dict: 
         endpoint = None
-        #Сначала проверяем по endpoint_url
-        endpoint = self.__findendpointbypath(spec,self.target_endpoint)
-        if endpoint:
-            return endpoint
-        #затем по name
-        endpoint =  self.__findendpointbyOpId(spec,self.operation_Name)
-        if endpoint:
-            return endpoint
-        if endpoint is None:
-            raise f'endpoint_url {self.target_endpoint} или OperationID{self.operation_Name} отсутствуют в спецификации.Дальнейшая работа невозможна.'
+        #Сначала проверяем по override endpoint_url
+        if self.target_endpoint and self.target_method:
+            endpoint = self.__findendpointbypath(spec)
+            if endpoint:
+                return endpoint
+        elif self.operation_Name: #не нашли по endpoint+method(или их нет)- ищем  по name
+                endpoint =  self.__findendpointbyOpId(spec)
+                if endpoint:
+                    return endpoint
+        else:
+            raise 'параметры endpoint_override/method_override/name не описаны в конфигурации. Дальнейшая работа невозможна.'
 
-    def __resolve_refs_in_operation(self, operation_spec: dict,ref_dict : dict) -> dict:
+        if endpoint is None:
+            raise f'endpoint_url:{self.target_endpoint} или OperationID:{self.operation_Name} отсутствуют в спецификации. Дальнейшая работа невозможна.'
+
+    def __resolve_refs_in_operation(self, operation_spec: dict, ref_dict: dict) -> dict:
         """
         Заменяет $ref в параметрах операции.
+        
+        Raises:
+            KeyError: Если ссылка $ref не найдена в ref_dict
         """
         if isinstance(operation_spec, dict):
             for key, value in list(operation_spec.items()):
                 if isinstance(value, dict):
                     # Если нашли словарь с $ref
-                    if "$ref" in value and isinstance(value["$ref"], str) and value["$ref"] in ref_dict:
-                        # Заменяем весь словарь на содержимое схемы
-                        operation_spec[key] = ref_dict[value["$ref"]]
+                    if "$ref" in value and isinstance(value["$ref"], str):
+                        ref_path = value["$ref"]
+                        if ref_path in ref_dict:
+                            # Заменяем весь словарь на содержимое схемы
+                            operation_spec[key] = ref_dict[ref_path]
+                        elif self.schema_infer_fallback:
+                            raise KeyError(f"Источника '{ref_path}' нет в разделе #/components")
                     else:
                         # Рекурсивно обрабатываем дальше
                         self.__resolve_refs_in_operation(value, ref_dict)
@@ -86,9 +109,13 @@ class OASParser:
         elif isinstance(operation_spec, list):
             for i, item in enumerate(operation_spec):
                 if isinstance(item, dict):
-                    if "$ref" in item and isinstance(item["$ref"], str) and item["$ref"] in ref_dict:
-                        # Заменяем элемент списка на содержимое схемы
-                        operation_spec[i] = ref_dict[item["$ref"]]
+                    if "$ref" in item and isinstance(item["$ref"], str):
+                        ref_path = item["$ref"]
+                        if ref_path in ref_dict:
+                            # Заменяем элемент списка на содержимое схемы
+                            operation_spec[i] = ref_dict[ref_path]
+                        elif self.schema_infer_fallback:
+                            raise KeyError(f"Источника '{ref_path}' нет в разделе #/components")
                     else:
                         self.__resolve_refs_in_operation(item, ref_dict)
                 elif isinstance(item, list):
@@ -149,7 +176,49 @@ class OASParser:
                 return first_url
         
         return ''
+    
+    
+    def __process_headers(self, headers_dict: dict) -> dict:
+        """
+        Обрабатывает заголовки, извлекая schema из каждого заголовка
+        и резолвя ссылки
+        """
+        if not headers_dict:
+            return None
         
+        processed_headers = {}
+        ref_dict = self.__extract_schemas(copy.deepcopy(self.spec))
+        
+        for header_name, header_details in headers_dict.items():
+            if isinstance(header_details, dict) and 'schema' in header_details:
+                schema_content = header_details['schema']
+                
+                # Если schema содержит ссылку - резолвим
+                if isinstance(schema_content, dict) and "$ref" in schema_content:
+                    ref_path = schema_content["$ref"]
+                    if ref_path in ref_dict:
+                        schema_content = ref_dict[ref_path]
+                
+                # Сохраняем метаданные заголовка + содержимое schema
+                processed_header = {
+                    "description": header_details.get("description"),
+                    "required": header_details.get("required", False)
+                }
+                
+                # Переносим свойства из schema
+                if isinstance(schema_content, dict):
+                    processed_header.update(schema_content)
+                else:
+                    processed_header["type"] = schema_content
+                
+                processed_headers[header_name] = processed_header
+            else:
+                processed_headers[header_name] = header_details
+        
+        return processed_headers
+    
+
+
     def __parse_specification(self, spec_dict: dict) -> dict:
             result = {}
             path = self.target_endpoint
@@ -162,9 +231,12 @@ class OASParser:
                     method_responses = method_details.get('responses')
                     if method_responses is not None:
                         # Добавить схему ответа
-                        response = method_details.get('responses')
+                        response = method_details.get('responses')                       
                         if response is not None:                    
-                             endpoint_data['response'] = self.__find_response_schema(response)
+                            endpoint_data['response'] = self.__find_response_schema(response)
+                            headers = response.get('200',{}).get('headers',{}) #пока только для 200
+                            if headers:
+                                endpoint_data['headers'] = self.__process_headers(headers)
                     if method_security is not None:
                         # Используем security из метода - выкинуть
                         endpoint_data['security'] = method_security
@@ -264,6 +336,7 @@ class OASParser:
                     return found
 
         return None
+    
 
     def __transform_spec_to_requests(self, spec: dict) -> dict:
         request = {}
@@ -274,206 +347,11 @@ class OASParser:
             base_url = spec.get("base_url", "")
             # Получаем путь
             url = spec["path"]
-            
-            # Собираем все переменные
-            all_variables = set()
-            required_variables = set()
-            
-            # Path параметры из parameters
-            parameters = spec.get("parameters", [])
-            for param in parameters:
-                if isinstance(param, dict):
-                    param_name = param.get("name")
-                    param_in = param.get("in")
-                    param_required = param.get("required", False)
-                    
-                    if param_name and param_in in ("path","header"):
-                        all_variables.add(param_name)
-                        if param_required:
-                            required_variables.add(param_name)
-            
-            #  Path параметры из reqref_params
-            reqref_params = spec.get("reqref_params", [])
-            for param in reqref_params:
-                if isinstance(param, str):
-                    all_variables.add(param)
-                    required_variables.add(param)
-                elif isinstance(param, dict):
-                    param_name = param.get("name")
-                    if param_name:
-                        all_variables.add(param_name)
-                        required_variables.add(param_name)
-            
-            # Path переменные из URL
-            import re
-            path_vars = re.findall(r'\{([^}]+)\}', url)
-            for var in path_vars:
-                all_variables.add(var)
-                required_variables.add(var)
-            
-            # Query параметры из parameters
-            for param in parameters:
-                if isinstance(param, dict):
-                    param_name = param.get("name")
-                    param_in = param.get("in")
-                    param_required = param.get("required", False)
-                    #тоже лишний кусок,возможно
-                    if param_name and param_in == "query":
-                        all_variables.add(param_name)
-                        if param_required:
-                            required_variables.add(param_name)
-            
-            # 5. Параметры из request_body
-            request_body = spec.get("request_body", {})
-            
-            def __extract_body_params(body_spec, parent_path="", skip_parent=False):
-                """
-                Извлекает имена параметров из body
-                skip_parent: True если нужно пропустить имя родительского контейнера
-                """
-                params = set()
-                required_params = set()
-                
-                if not body_spec or not isinstance(body_spec, dict):
-                    return params, required_params
-                
-                # Проверяем наличие properties (для объектов)
-                if "properties" in body_spec:
-                    properties = body_spec.get("properties", {})
-                    required_fields = body_spec.get("required", [])
-                    
-                    for prop_name, prop_schema in properties.items():
-                        # Формируем полное имя параметра
-                        if skip_parent:
-                            # Если нужно пропустить родителя, используем только имя свойства
-                            full_name = prop_name
-                        elif parent_path:
-                            full_name = f"{parent_path}.{prop_name}"
-                        else:
-                            full_name = prop_name
-                        
-                        # Добавляем параметр
-                        params.add(full_name)
-                        
-                        # Проверяем required
-                        if prop_name in required_fields:
-                            required_params.add(full_name)
-                        
-                        # Рекурсивно обрабатываем вложенные объекты
-                        if isinstance(prop_schema, dict):
-                            prop_type = prop_schema.get("type")
-                            
-                            # Если это объект с properties
-                            if prop_type == "object" and "properties" in prop_schema:
-                                nested_params, nested_required = __extract_body_params(
-                                    prop_schema,
-                                    parent_path=full_name,
-                                    skip_parent=False
-                                )
-                                params.update(nested_params)
-                                required_params.update(nested_required)
-                            
-                            # Если это массив объектов
-                            elif prop_type == "array" and "items" in prop_schema:
-                                items = prop_schema["items"]
-                                if isinstance(items, dict) and items.get("type") == "object" and "properties" in items:
-                                    nested_params, nested_required = __extract_body_params(
-                                        items,
-                                        parent_path=f"{full_name}[*]",
-                                        skip_parent=False
-                                    )
-                                    params.update(nested_params)
-                                    required_params.update(nested_required)
-                
-                # Если это не объект с properties, а просто словарь с полями
-                else:
-                    for field_name, field_schema in body_spec.items():
-                        if isinstance(field_schema, dict) and 'type' in field_schema:
-                            # Формируем полное имя
-                            if skip_parent:
-                                full_name = field_name
-                            elif parent_path:
-                                full_name = f"{parent_path}.{field_name}"
-                            else:
-                                full_name = field_name
-                            
-                            # Добавляем параметр
-                            params.add(full_name)
-                            
-                            # Проверяем required
-                            if field_schema.get("required", False):
-                                required_params.add(full_name)
-                            
-                            # Рекурсивно обрабатываем вложенные объекты
-                            field_type = field_schema.get("type")
-                            if field_type == "object" and "properties" in field_schema:
-                                nested_params, nested_required = __extract_body_params(
-                                    field_schema,
-                                    parent_path=full_name,
-                                    skip_parent=False
-                                )
-                                params.update(nested_params)
-                                required_params.update(nested_required)
-                            elif field_type == "array" and "items" in field_schema:
-                                items = field_schema["items"]
-                                if isinstance(items, dict):
-                                    if items.get("type") == "object" and "properties" in items:
-                                        nested_params, nested_required = __extract_body_params(
-                                            items,
-                                            parent_path=f"{full_name}[*]",
-                                            skip_parent=False
-                                        )
-                                        params.update(nested_params)
-                                        required_params.update(nested_required)
-                
-                return params, required_params
-            
-            # Извлекаем параметры из body
-            if request_body:
-                body_params = set()
-                body_required = set()
-                
-                # Проверяем структуру request_body
-                if "properties" in request_body:
-                    properties = request_body.get("properties", {})
-                    
-                    # Обрабатываем каждое поле верхнего уровня
-                    for prop_name, prop_schema in properties.items():
-                        # Проверяем, является ли это поле контейнером параметров (например, "params")
-                        if (isinstance(prop_schema, dict) and 
-                            prop_schema.get("type") == "object"):
-                            
-                            # Получаем все поля внутри этого объекта
-                            if "properties" in prop_schema:
-                                # Это объект с properties - обрабатываем его поля как параметры верхнего уровня
-                                container_params, container_required = __extract_body_params(
-                                    prop_schema,
-                                    skip_parent=True  # Пропускаем имя контейнера
-                                )
-                                body_params.update(container_params)
-                                body_required.update(container_required)
-                            else:
-                                # Это объект без properties - возможно, поля на верхнем уровне
-                                for field_name, field_schema in prop_schema.items():
-                                    if isinstance(field_schema, dict) and 'type' in field_schema:
-                                        # Добавляем поле как параметр верхнего уровня
-                                        body_params.add(field_name)
-                                        if field_schema.get("required", False):
-                                            body_required.add(field_name)
-                        else:
-                            # Обычное поле не-контейнер
-                            field_params, field_required = __extract_body_params(
-                                {prop_name: prop_schema}
-                            )
-                            body_params.update(field_params)
-                            body_required.update(field_required)
-                else:
-                    # Если нет properties, пробуем обработать как есть
-                    body_params, body_required = __extract_body_params(request_body)
-                
-                all_variables.update(body_params)
-                required_variables.update(body_required)
-                
+
+            headers = spec.get('headers',{})
+            headers_params = []
+            if headers:
+                headers_params = headers.keys()
             
             # Формируем финальную конфигурацию
             request = {
@@ -485,11 +363,9 @@ class OASParser:
                     "Accept": ""#application/json
                 },
                 "auth_types": spec.get("security", None),
-                "variables": sorted(list(all_variables)) if all_variables else [],
-                "required": sorted(list(required_variables)) if required_variables else []
+                "custom_header_variables" : sorted(list(headers_params)) if headers_params else [], 
             }
             
-            # Отладка
             
         except Exception as e:
             print(f"Предупреждение: Ошибка обработки endpoint '': {e}")
@@ -500,109 +376,31 @@ class OASParser:
 
     def get_response_map(self,ID:str = None): 
         return self.response_map
+    
+    def get_headers_map(self,ID:str = None): 
+        return self.headers_map
         
     def _get_request_config(self):
         return self.request
 
-    def __schema_to_payload(self, schema: dict) -> dict:
-
-        """Преобразует одну схему в payload структуру"""
-        payload = {}
-        composite_types = ['oneOf', 'anyOf', 'allOf']
+    def __extract_schemas(self, openapi_spec: dict):
+        """
+        Загружает все компоненты OpenAPI спецификации.
         
-        # Определяем тип схемы
-        schema_type = schema.get('type')
-        
-        # Если это объект
-        if schema_type == 'object':
-            properties = schema.get('properties', {})
-            required_fields = schema.get('required', [])
-            
-            if properties:
-                for prop_name, prop_schema in properties.items():
-                    # Инициализируем базовую структуру для свойства
-                    prop_payload = {
-                        'name': prop_name,
-                        'required': prop_name in required_fields,
-                        'nullable': prop_schema.get('nullable', False),
-                    }
-                    
-                    # Добавляем type, format, items если они есть
-                    if 'type' in prop_schema:
-                        prop_payload['type'] = prop_schema['type']
-                    if 'format' in prop_schema:
-                        prop_payload['format'] = prop_schema['format']
-                    if 'items' in prop_schema:
-                        prop_payload['items'] = prop_schema['items']
-                    if '$ref' in prop_schema:
-                        prop_payload['$ref'] = prop_schema['$ref']
-                    
-                    # Обрабатываем составные типы
-                    for comp_type in composite_types:
-                        if comp_type in prop_schema:
-                            comp_value = prop_schema[comp_type]
-                            if isinstance(comp_value, list):
-                                # Сохраняем ссылки как есть, они будут разыменованы позже
-                                prop_payload[comp_type] = [
-                                    item.get('$ref', item) if isinstance(item, dict) else item 
-                                    for item in comp_value
-                                ]
-                    
-                    payload[prop_name] = prop_payload
-            else:
-                # Обработка случая, когда нет properties
-                for key, value in schema.items():
-                    if key in composite_types:
-                        if isinstance(value, list):
-                            payload[key] = [
-                                item.get('$ref', item) if isinstance(item, dict) else item 
-                                for item in value
-                            ]
-        
-        # Если это параметр (имеет name и schema)
-        elif 'name' in schema and 'schema' in schema and isinstance(schema['schema'], dict):
-            param_name = schema['name']
-            param_schema = schema['schema']
-            param_required = schema.get('required',None)
-            
-            payload[param_name] = {
-                'name': param_name,
-                'required': param_required,
-                'nullable': param_schema.get('nullable',None),
-                'type': param_schema.get('type',None),
-                'format': param_schema.get('format',None),
-                'items': param_schema.get('items',None),
-            }
-            if '$ref' in param_schema:
-                payload[param_name]['$ref'] = param_schema['$ref']
-        
-        # Если это другой тип данных (string, array и т.д.)
-        elif schema_type:
-            payload['value'] = {
-                'name': 'value',
-                'required': True,
-                'nullable': schema.get('nullable', None),
-                'type': schema_type,
-                'format': schema.get('format', None),
-                'items': schema.get('items', None),
-            }
-            if '$ref' in schema:
-                payload['value']['$ref'] = schema['$ref']
-        
-        return payload
-
-    def __extract_schemas(self, openapi_spec: dict) -> dict:
-        
-        # Загружаем сырые схемы
-        # много хардкода,т.к идем по стандарту
-        raw_schemas = {}
+        out:
+            dict: Словарь всех компонентов с их путями в качестве ключей
+        """
+        raw_components = {}
         if 'components' in openapi_spec and isinstance(openapi_spec['components'], dict):
-            if 'schemas' in openapi_spec['components'] and isinstance(openapi_spec['components']['schemas'], dict):
-                for schema_name, schema_content in openapi_spec['components']['schemas'].items():
-                    ref_key = f"#/components/schemas/{schema_name}"
-                    raw_schemas[ref_key] = copy.deepcopy(schema_content)
+            components = openapi_spec['components']
+            
+            for component_type, component_dict in components.items():
+                if isinstance(component_dict, dict):
+                    for component_name, component_content in component_dict.items():
+                        ref_key = f"#/components/{component_type}/{component_name}"
+                        raw_components[ref_key] = copy.deepcopy(component_content)
         
-        resolved_schemas = {}
+        resolved_components = {}
         
         def __resolve_obj(obj, stack=None):
             """Разрешает ссылки в объекте с контролем стека"""
@@ -613,162 +411,247 @@ class OASParser:
                 # Если это словарь с одной ссылкой
                 if "$ref" in obj and len(obj) == 1:
                     ref = obj["$ref"]
-                    if ref in raw_schemas:
+                    if ref in raw_components:
                         if ref in stack:
                             return {"type": "object"}  # рекурсия - заменяем на object
-                        
                         stack.append(ref)
-                        resolved = raw_schemas[ref]
+                        resolved = raw_components[ref]
                         result = __resolve_obj(resolved, stack)
                         stack.pop()
                         return result
-                    return obj
+                    elif self.schema_infer_fallback:
+                        raise KeyError(f"Источника '{ref}' нет в компонентах спецификации")
                 
-                # Обычный словарь
                 result = {}
                 for key, value in obj.items():
-                    if key == "$ref" and isinstance(value, str) and value in raw_schemas:
+                    if key == "$ref" and isinstance(value, str):
                         # Обрабатываем ссылку внутри словаря
-                        if value in stack:
-                            result[key] = {"type": "object"}  # рекурсия - заменяем на object
-                        else:
-                            stack.append(value)
-                            resolved = raw_schemas[value]
-                            result[key] = __resolve_obj(resolved, stack)
-                            stack.pop()
+                        if value in raw_components:
+                            if value in stack:
+                                result[key] = {"type": "object"}  # рекурсия - заменяем на object
+                            else:
+                                stack.append(value)
+                                resolved = raw_components[value]
+                                result[key] = __resolve_obj(resolved, stack)
+                                stack.pop()
+                        elif self.schema_infer_fallback:
+                            raise KeyError(f"Источника '{value}' нет в компонентах спецификации")
                     else:
                         result[key] = __resolve_obj(value, stack)
                 return result
             
             elif isinstance(obj, list):
                 return [__resolve_obj(item, stack) for item in obj]
-            
             return obj
         
-        # Разрешаем все схемы
-        for ref_key in raw_schemas.keys():
-            resolved_schemas[ref_key] = __resolve_obj(raw_schemas[ref_key])
+        for ref_key in raw_components.keys():
+            resolved_components[ref_key] = __resolve_obj(raw_components[ref_key])
         
-        return resolved_schemas
+        return resolved_components
 
-    def __extract_schemas_with_payloads(self, spec_dict: dict) -> dict:
-        """
-        Извлекает все схемы из всех разделов components и преобразует их в payload
-        Возвращает словарь {полный_ref: payload}
-        """
-        if 'components' not in spec_dict:
-            return {}
-        
-        components = spec_dict['components']
-        payloads = {}
-        
-        # Сначала собираем все схемы
-        for section_name, section_content in components.items():
-            if not isinstance(section_content, dict):
-                continue
-            for item_name, item_data in section_content.items():
-                full_ref = f"#/components/{section_name}/{item_name}"
-                if isinstance(item_data, dict):
-                    payload = self.__schema_to_payload(item_data)
-                    if payload:
-                        payloads[full_ref] = payload
-        
-        def __resolve_refs(obj, visited=None, path=""):
-            if visited is None:
-                visited = set()
-            
-            if isinstance(obj, dict):
-                # Сохраняем метаданные текущего объекта
-                metadata = {}
-                if 'name' in obj:
-                    metadata['name'] = obj['name']
-                if 'required' in obj:
-                    metadata['required'] = obj['required']
-                if 'nullable' in obj:
-                    metadata['nullable'] = obj['nullable']
-                
-                # Проверяем, есть ли ссылка для разыменования
-                ref = obj.get('$ref')
-                if ref and isinstance(ref, str) and ref in payloads and ref not in visited:
-                    visited.add(ref)
-                    resolved = payloads[ref]
-                    
-                    # Разыменовываем вложенные ссылки в resolved
-                    resolved = __resolve_refs(resolved, visited, path + "->" + ref)
-                    
-                    # Если resolved - это словарь, объединяем с метаданными
-                    if isinstance(resolved, dict):
-                        result = resolved.copy()
-                        # Добавляем метаданные на верхний уровень, если их нет в resolved
-                        for key, value in metadata.items():
-                            if key not in result:
-                                result[key] = value
-                        return result
-                
-                # Обрабатываем составные типы (oneOf, anyOf, allOf)
-                result = {}
-                for key, value in obj.items():
-                    if key in ['oneOf', 'anyOf', 'allOf'] and isinstance(value, list):
-                        # Для составных типов разыменовываем каждый элемент
-                        resolved_list = []
-                        for item in value:
-                            if isinstance(item, str):
-                                # Если это строка-ссылка
-                                if item in payloads and item not in visited:
-                                    visited_copy = visited.copy()
-                                    visited_copy.add(item)
-                                    resolved_item = payloads[item]
-                                    resolved_item = __resolve_refs(resolved_item, visited_copy, path + "->" + item)
-                                    resolved_list.append(resolved_item)
-                                else:
-                                    resolved_list.append(item)
-                            elif isinstance(item, dict):
-                                # Если это словарь с возможной ссылкой
-                                resolved_item = __resolve_refs(item, visited.copy(), path)
-                                resolved_list.append(resolved_item)
-                            else:
-                                resolved_list.append(item)
-                        result[key] = resolved_list
-                    elif key != '$ref':  # Не обрабатываем саму ссылку повторно
-                        result[key] = __resolve_refs(value, visited.copy(), path)
-                
-                # Добавляем сохраненные метаданные, если их нет в результате
-                for key, value in metadata.items():
-                    if key not in result:
-                        result[key] = value
-                
-                return result if result else metadata
-            
-            elif isinstance(obj, list):
-                # Рекурсивно обрабатываем все элементы списка
-                result = []
-                for i, item in enumerate(obj):
-                    if isinstance(item, str) and item.startswith('#/components/'):
-                        # Если это строка-ссылка в списке
-                        if item in payloads and item not in visited:
-                            visited_copy = visited.copy()
-                            visited_copy.add(item)
-                            resolved_item = payloads[item]
-                            resolved_item = __resolve_refs(resolved_item, visited_copy, path + "->" + item)
-                            result.append(resolved_item)
-                        else:
-                            result.append(item)
-                    else:
-                        result.append(__resolve_refs(item, visited.copy(), path))
-                return result
-            
-            else:
-                return obj
-        
-        resolved_payloads = {}
-        
-        for ref, payload in payloads.items():
-            resolved_payloads[ref] = __resolve_refs(payload)
-        
-        return resolved_payloads
+    
 
     def __convert_schema_to_sprkfrm(self,response_map,type_mapping):
         converter = OpenAPIToSparkConverter(type_mapping)
         spark_json_schema = converter.convert(response_map)
         return spark_json_schema
         
+
+    def add_header_to_content(self,content,header,headers_fallback,type_mapping):
+        '''
+        Работает когда:
+        Надо собрать структуру из ничего - Кейс №6
+        '''
+        TEMPLATE = '''
+                {{
+                    "type": "struct",
+                    "fields": [
+                        {{
+                            "name": "header",
+                            "nullable": true,
+                            "type": {0},
+                            "metadata": {{}}
+                        }},
+                        {{
+                            "name": "content",
+                            "nullable": true,
+                            "type": {1},
+                            "metadata": {{}}
+                        }}
+                    ]
+                }}
+                '''
+
+        header_template = {
+            "type": "struct",
+            "fields": []
+            }
+        
+        import json
+        if header:
+            fields = header.get('fields',[])
+            fields += header_template.get('fields',[])
+            header['fields'] = fields
+        elif headers_fallback:
+            for i,j in headers_fallback.items():
+                if i not in self.request.get('custom_header_variables'):
+                    header_param = {
+                                            "name": i,
+                                            "nullable": True,
+                                            "type": type_mapping.get(j,'string'),
+                                            "metadata": {}
+                                        }
+                    header_template['fields'].append(header_param)
+        else:
+            header = header_template
+        
+        result = TEMPLATE.format(json.dumps(header),json.dumps(content))
+        return json.loads(result) 
+
+    def __check_schema_override(self,data,headers_fallback,type_mapping):
+        if not isinstance(data, dict) or 'fields' not in data:
+            raise('Неккоректная структура схемы.')
+        has_content,has_header = False,False
+        for field in data['fields']:
+            if field.get('name') == 'header':
+                has_header = True
+            if field.get('name') == 'content':
+                has_content = True
+        if has_header and has_content:
+            return data 
+    
+
+        if not has_header:
+            header_template = {
+                "type": "struct",
+                "fields": []
+                }
+            if headers_fallback: 
+                for i,j in headers_fallback.items(): #сконвертировать
+                    header_param = {
+                                    "name": i,
+                                    "nullable": True,
+                                    "type": type_mapping.get(j,'string'),
+                                    "metadata": {}
+                                }
+                    header_template['fields'].append(header_param)
+
+            new_headers = header_template
+
+            template =  {"name": "header",
+                                "nullable": True,
+                                "type": {},
+                                "metadata":{} }
+            template["type"] = new_headers
+            data['fields'].append(template)
+        if not has_content:
+            template =  {"name": "content",
+                            "nullable": True,
+                            "type": {},
+                            "metadata":{} }
+            template["type"] = self.__resolve_override_schema(data)
+            #чистим первый уровень
+            data["fields"] = [f for f in data["fields"] if f.get("name") == "header"]
+            data['fields'].append(template)
+            #остается еще поле вне content и header
+        return data
+
+
+    def __resolve_override_schema(self, data):
+        #TEST: keep_header = 0 + schema_override not null, поле header дропаем, если есть,content распаковываем на первый уровень - уронить при конфликте имен
+        if not isinstance(data, dict) or 'fields' not in data:
+            raise Exception('Некорректная структура схемы.')
+        
+        new_fields = []
+        content_fields = []
+        
+        for field in data['fields']:
+            if field.get('name') == 'header':
+                continue
+            
+            if field.get('name') == 'content':
+                field_type = field.get('type', {})
+                type_name = field_type.get('type')
+                
+                if type_name == 'struct':
+                    content_fields = field_type.get('fields', [])
+                elif type_name == 'array':
+                    element_type = field_type.get('elementType', {})
+                    if element_type.get('type') == 'struct':
+                        content_fields = element_type.get('fields', [])
+                    else:
+                        content_fields = [field] 
+                else:
+                    # Для других типов
+                    content_fields = [field]
+            else:
+                new_fields.append(field)
+        
+        new_fields.extend(content_fields)
+
+        existing_names = [f['name'] for f in new_fields]
+        unique = set(existing_names)
+
+        if len(existing_names) != len(unique):
+            raise Exception("Конфликт имен полей")
+        
+        if len(new_fields) == 0:
+                  return {"type": "struct",
+                         "fields":[]}
+        return {
+            "type": "struct",
+            "fields": new_fields
+        }
+
+    def get_schema(self,keep_headers,schema_override,headers_fallback,type_mapping,raw:bool = False):
+        import json
+        if not headers_fallback:
+            headers_fallback = {}
+        custom_header_variables = self.request.get('custom_header_variables',[]) #получаем список атрибутов хидера из спеки / + при schema_override = 1 этот список должен заполнится из schema_override
+        if not isinstance(raw,bool):
+            raise TypeError('Неподдерживаемый тип данных')
+        if self.response_map is None:
+            raise('В предложенной спецификации отсутствует раздел response.')
+        
+            #+Кейс 1. keep_header = 1 + schema_override not null , есть header и content - ничего не делаем
+            #+Кейс 2. keep_header = 1 + schema_override not null , добавить content если нет
+            #+Кейс 3. keep_header = 1 + schema_override not null , добавить header  если нет
+            #+Кейс 4. keep_header = 0 + schema_override not null, поле header дропаем, если есть,content распаковываем на первый уровень - уронить при конфликте имен
+            #+Кейс 5. keep_header = 0 + schema_override is null , возвращаем schema
+            #+Кейс 6. keep_header = 1 + schema_override is null, добавляем header в соотстветвие с конфигурацией + (реальный header из спеки - мб их не будет)
+            #+Кейс 7. keep_header = 1 + schema_override is null, raw = True  
+            #+Кейс 8. keep_header = 0 + schema_override is null, raw = True  
+        if raw: #без конфигурации, кейс #7-8
+            if keep_headers:
+                import copy
+                header = copy.deepcopy(self.get_headers_map())
+                if header is not None:
+                    for i,j in headers_fallback.items():
+                        if custom_header_variables:
+                            if i not in custom_header_variables:
+                                header['properties'].update({i:{'schema':{'type': j}}})
+                            else:
+                                properties[i] = {'schema':{'type': j}}
+                else:
+                    properties = {}
+                    header = {'type': 'object','properties':{}}
+                    for i,j in headers_fallback.items():
+                        if custom_header_variables:
+                            if i not in custom_header_variables:
+                                properties[i] = {'schema':{'type': j}}
+                        else:
+                            properties[i] = {'schema':{'type': j}}
+                    header['properties'] = properties
+                return {'content':self.get_response_map(),'headers':header} 
+            else:
+                return self.get_response_map() #Кейс 8
+        else:
+            if not keep_headers:
+                if schema_override:
+                    return self.__resolve_override_schema(json.loads(schema_override)) # Кейс 4
+                return self.getStructTypeSchema(type_mapping) # Кейс 5
+            elif keep_headers:
+                if schema_override: #Кейс 1-3
+                    return self.__check_schema_override(json.loads(schema_override),headers_fallback,type_mapping)
+                else:
+                    return self.add_header_to_content(self.getStructTypeSchema(type_mapping),self.getStructTypeHeader(type_mapping),headers_fallback,type_mapping) #Кейс 6

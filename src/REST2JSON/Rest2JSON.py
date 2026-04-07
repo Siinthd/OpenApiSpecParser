@@ -7,16 +7,17 @@ from .utils.OASParser import OASParser
 from .URESTClient import URESTClient
 
 class ParserAdapter(OASParser):
-    def __init__(self,OpName,endpoint_url,method,spec):
+    def __init__(self,OpName,endpoint_url,method,schema_infer_fallback,spec):
         self._parser = None
         self.spec = spec
         self.OpName = OpName
         self.endpoint_url = endpoint_url
+        self.schema_infer_fallback = schema_infer_fallback
         self.method = method
     
     def get_parser(self): 
         if self._parser is None:
-            self._parser = OASParser(self.OpName,self.endpoint_url,self.method,self.spec)
+            self._parser = OASParser(self.OpName,self.endpoint_url,self.method,self.schema_infer_fallback,self.spec)
         return self._parser
 
 class ClientAdapter(URESTClient):
@@ -36,24 +37,29 @@ class REST2JSON:
                 config: dict = None):
         #Загружаем конфигурацию
         (self.payload,
-         self.base_url,
+         self.base_override,
          self.OpenAPISpecYAML,
          self.OpenAPISpecYAMLURL,
          self.auth_header,
          self.auth_body,
          self.OpName,
          self.retries,
-         self.endpoint_url,
-         self.method,
+         self.endpoint_override,
+         self.method_override,
          self.timeout,
          self.paginate,
          self.page_param,
-         self.type_mapping) = self.__load_configuration(config)
+         self.type_mapping,
+         self.schema_override,
+         self.keep_headers,
+         self.headers_fallback,
+         self.schema_infer_fallback) = self.__load_configuration(config)
         #Получаем спецификацию
         self.spec = self._load_specification_(self.OpenAPISpecYAML,self.OpenAPISpecYAMLURL)
         #Загрузка адаптера
 
-        self.__parser_adapter = ParserAdapter(self.OpName,self.endpoint_url,self.method,self.spec).get_parser()
+        self.__parser_adapter = ParserAdapter(self.OpName,self.endpoint_override,self.method_override,self.schema_infer_fallback,self.spec).get_parser()
+
         self.entity_config = self.__parser_adapter.request
         
         self.base_url = self.__getbase_url(self.entity_config)
@@ -76,8 +82,14 @@ class REST2JSON:
 
     def _load_specification_(self,src,url) ->dict:
         import yaml 
-        if url: #TODO обработка списка ссылок,добавть break,приоритет
-            data = self._get_specfromurl(url)
+        if url: 
+            if isinstance(url,list):
+                for position in url:
+                    data = self._get_specfromurl(position)
+                    if data:
+                        return data
+            else:        
+                data = self._get_specfromurl(url)
         elif src:
             try:
                 data = yaml.safe_load(src)
@@ -121,8 +133,8 @@ class REST2JSON:
         
     def __getbase_url(self,entity_config):
         base_url = entity_config.get("base_url",None)
-        if self.base_url:
-            return self.base_url
+        if self.base_override:
+            return self.base_override
         elif base_url:
             return base_url
         else:
@@ -142,80 +154,58 @@ class REST2JSON:
             src_data = proc.get('src',{}).get('data',{})
             name = src.get('name',{})
             type_mapping = env.get('json',{}).get('type_mapping',{})
-            type_mapping.update(src_data.get('json_mapping_override',{}))
+            headers_fallback = env.get('json',{}).get('headers_fallback',{}) #задел для update
+
+            type_mapping.update(src_data.get('type_mapping_override',{}))
             payload = src_data.get('payload',None)
+            schema_override = src_data.get('schema_override',None)
+            keep_headers = src_data.get('schema_keep_header',None)
+            schema_infer_fallback = src_data.get('schema_infer_fallback',None)
             if proc_conn_params:
-                endpoint_url = proc_conn_params.get('endpoint_url',None)
-                method  = proc_conn_params.get('method',None)
+                endpoint_override = proc_conn_params.get('endpoint_override',None)
+                method_override  = proc_conn_params.get('method_override',None)
                 timeout = proc_conn_params.get('timeout',None)
                 retries = proc_conn_params.get('retries',None)
                 pagination  = proc_conn_params.get('pagination',{}).get('enabled',None)
                 page_param  = proc_conn_params.get('pagination',{}).get('page_param',None)
                 spec_url    = proc_conn_params.get('spec_url',None)
-                spec_data   = proc_conn_params.get('spec_data',None)
-                base_url    = proc_conn_params.get('base_url',None)
-            if None in (proc,src,name,conn_type,((endpoint_url and base_url) or name),(spec_url or spec_data),pagination,auth):
-                    raise ('Отсутствует обязазательный параметр конфигурации (один из списка): proc,src,name,conn_type,(endpoint_url and base_url) or name),(spec_url или spec_data),pagination,auth')
-            return payload,base_url,spec_data,spec_url,auth_header,auth_body,name,retries,endpoint_url,method,timeout,pagination,page_param,type_mapping
+                spec_fallback   = proc_conn_params.get('spec_fallback',None)
+                base_override    = proc_conn_params.get('base_override',None)
+                #помечу на удаление
+            return payload,base_override,spec_fallback,spec_url,auth_header,auth_body,name,retries,endpoint_override,method_override,timeout,pagination,page_param,type_mapping,schema_override,keep_headers,headers_fallback,schema_infer_fallback
         except Exception as e:
             print(e)
-            return None
         
     def get_schema(self,raw:bool = False):
-        if not isinstance(raw,bool):
-            raise TypeError('Неподдерживаемый тип данных')
-        if self.__parser_adapter is None:
-            return None
-        if raw:
-            return self.__parser_adapter.get_response_map()
-        return self.__parser_adapter.getStructTypeSchema(self.type_mapping)
+        result = self.__parser_adapter.get_schema(
+            self.keep_headers,
+            self.schema_override,
+            self.headers_fallback,
+            self.type_mapping,
+            raw)
+        return result
+            
     
     def _prepare_payload(self, data):
-        #TODO 
-        #добавить вставку ApiKey в каждый запрос,
-        #по условию если нет хидера и есть боди
-        payload = []
-        required = self.entity_config.get('required',[])
-        datatype =  type(data)
-        if datatype == dict:
-            entity_variables = self.entity_config.get('variables',None)
-            keys = data.keys()
-            if set(entity_variables) & set(keys):
-                print('переменная(ые) есть в списке')
-            payload = [data]
-        elif datatype == list:
-            if  all(isinstance(item, dict) for item in data):
-                payload = data
-            else:
-                if len(required) == 1:
-                        payload = [{required[0]: value} for value in data]    
-                else:
-                    print('Требуется явно указать параметр(ы) запроса')
-        elif data:
-            if required:
-                payload = [{required[0]: value} for value in [data]]
-            else:
-                payload = [data]
-        else: # Если запрос - это просто обращение по ссылке
-            payload = data     
+        import copy
+        payload = copy.deepcopy(data) # на этот момент payload должен быть списком словарей 
+        datatype = type(payload).__name__
+        if datatype not in ('list','dict','NoneType'):
+            raise(' payload должнен иметь тип `dict|list|NoneType`')
+        if isinstance(payload,list):
+            if not (len(set(map(type, payload))) <= 1 and type(payload[0]) == dict):
+                raise('в списке payload все объекты должны быть типа `dict`')
+        if isinstance(payload,dict):
+            payload = [payload]
+        
+        
         if not self.auth_header and self.auth_body: #Добавляем пароль к сообщению , 1 приоритет - header
             if payload:
-                payload = [{**value, **self.auth_body} for value in payload] # на этот момент payload уже список словарей
-            else:
+                payload = [{**value, **self.auth_body} for value in payload] 
+            else: # в payload нет ничего - в сообщении будет только авторизация
                 payload = self.auth_body
         return payload
         
-    def _is_valid_response(self, response=None,entity_schema=None,debug=True):
-
-        """
-        Проверка валидности ответа от API
-        добавить оценку если это массив структур,иначе результат ложноположительный
-
-        стратегия: заинферить схему из ответа и столкнуть с схемой ответа из специ,похожесть
-        еще пандас
-        Отложено: всегда обрывает пагинацию
-        """
-        return False 
     
     def __direct(self, payload):
         """
@@ -279,47 +269,60 @@ class REST2JSON:
         
     def _execute(self,data):
         results = []
-        #разделить на два процесса в зависимости от пагинации
-        '''
-        #Отложено 11/03/2026
-
-        if self.paginate:
-            for item in data:
-                page = 1   
-                while True:
-                    try:
-                        print(f'proccess page {page}')
-                        item[self.page_param] = page
-                        response = self.client_adapter.execute(item)
-                        if self._is_valid_response(response = response,debug=True): #вынести в контроль загрузки
-                            results.append(response)
-                        else:
-                            break
-                        page += 1
-                    except Exception as e:
-                        print(f"Error processing {item}: {e}")
-                        break   
-        '''
         if not data:
             try:
-                content,header = self.__client_adapter.execute()  # Вызов без данных
-                if self._is_valid_response(response = content,debug=True):
-                    results.append(content)
-                    return results
-                return []
+                for attempt in range(self.retries):
+                    try:
+                        content, headers = self.__client_adapter.execute()  # Вызов без данных
+                        if self.keep_headers:
+                            answer = {'content': content}
+                            header = {}
+                            new_head = dict(headers).get('content-type', {})
+                            header.update({'content-type': new_head})
+                            for i in self.entity_config.get('custom_header_variables', []):
+                                header_data = headers.get(i, {})
+                                header.update(header_data)
+                            answer['Headers'] = header
+                            results.append(answer)
+                        else:
+                            results.append(content)
+                        return results  
+                        
+                    except Exception as e:
+                        print(f"Попытка {attempt + 1}/{self.retries} неудачна: {e}")
+                        if attempt == self.retries - 1:  
+                            print(f"Все {self.retries} провалились")
+                            return []
+                return []  
             except Exception as e:
-                print(f"Error processing empty payload: {e}")
+                print(f"Ошибка обработки: {e}")
                 return []
             
         else:
             for item in data:
-                try:
-                    content,header = self.__client_adapter.execute(item)
-                    if self._is_valid_response(response = content,debug=True) or True: #вынести в контроль загрузки
-                         results.append(content)
-                except Exception as e:
-                    print(f"Error processing {item}: {e}")        
-        return results
+                for attempt in range(self.retries):
+                    try:
+                        content, header = self.__client_adapter.execute(item)
+                        if True:  # вынести в контроль загрузки
+                            if self.keep_headers:
+                                answer = {'content': content}
+                                headers = {}
+                                new_head = dict(header).get('content-type', {})
+                                headers.update({'content-type': new_head})
+                                for i in self.entity_config.get('custom_header_variables', []):
+                                    header_data = header.get(i, {})
+                                    headers.update(header_data)
+                                answer['Headers'] = headers
+                                results.append(answer)
+                            else:
+                                results.append(content)
+                        break      
+                    except Exception as e:
+                        print(f"Попытка {attempt + 1}/{self.retries} неудачна: {e}")
+                        if attempt == self.retries - 1: 
+                             print(f"Все {self.retries} попытки для запроса {item} провалились")
+                             return results
+            return results
     
     def close(self):
         if self.__in_context:

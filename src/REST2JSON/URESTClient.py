@@ -92,7 +92,7 @@ class URESTClient():
                 raise ValueError(f"Unsupported method: {method}")
                 
         except Exception as e:
-            #print(f"Error in execute: {e}")
+            print(f"Error in execute: {e}")
             self.close() 
             raise
 

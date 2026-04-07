@@ -17,22 +17,23 @@ if __name__ == "__main__":
             config = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
-        
+
+
+
     
 
     rest = REST2JSON(config)
     
 
     
-    #pprint(rest.get_data())
     import json
     with open('schema_raw.json','w',encoding='Utf-8') as f:
         json.dump(rest.get_schema(True),f,indent=1)
     with open('schema.json','w',encoding='Utf-8') as f:
-        json.dump(rest.get_schema(),f,indent=1)
+        json.dump(rest.get_schema(),f,indent=2)
 
     with open('answer.json','w',encoding='Utf-8') as f:
-       json.dump(rest.get_data(),f,indent=1)
+      json.dump(rest.get_data(),f,indent=1)
 
 
     
@@ -45,5 +46,3 @@ if __name__ == "__main__":
 
     #     with open('schema_inmobile.json','w',encoding='Utf-8') as f:
     #         json.dump(sch_pars.response_sparkdf,f,indent=1)
-
-        
