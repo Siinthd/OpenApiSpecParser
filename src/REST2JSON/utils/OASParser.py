@@ -622,6 +622,7 @@ class OASParser:
             #+Кейс 7. keep_header = 1 + schema_override is null, raw = True  
             #+Кейс 8. keep_header = 0 + schema_override is null, raw = True  
         if raw: #без конфигурации, кейс #7-8
+            properties = {}
             if keep_headers:
                 import copy
                 header = copy.deepcopy(self.get_headers_map())
@@ -633,7 +634,6 @@ class OASParser:
                             else:
                                 properties[i] = {'schema':{'type': j}}
                 else:
-                    properties = {}
                     header = {'type': 'object','properties':{}}
                     for i,j in headers_fallback.items():
                         if custom_header_variables:

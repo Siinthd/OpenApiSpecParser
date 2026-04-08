@@ -61,6 +61,7 @@ class REST2JSON:
         self.__parser_adapter = ParserAdapter(self.OpName,self.endpoint_override,self.method_override,self.schema_infer_fallback,self.spec).get_parser()
 
         self.entity_config = self.__parser_adapter.request
+        self.override_header_list  = self.get_header_keys_from_override()
         
         self.base_url = self.__getbase_url(self.entity_config)
         #self.Tokens = self.Tokens_MOCK(self.TokensFilename,self.base_url)
@@ -185,6 +186,31 @@ class REST2JSON:
             raw)
         return result
             
+    def get_header_keys_from_override(self):
+        '''
+        Парсинг schema_override из конфигурации
+        извлекаем все ключи из headers.type.fields если они есть
+        {
+            type:struct
+            fields:[
+                    {name:content,type:{}},
+                    {name:header,type: struct,fields:[{name:key1},{name:key2}.....]}
+                    ]
+        }
+        '''
+        import json
+        result = []
+        if self.schema_override:
+            schema = json.loads(self.schema_override)
+            if schema.get('type') == 'struct':
+                main_field = schema.get('fields')
+                if main_field and (isinstance,list):
+                    header_struct = next((f for f in main_field if f.get("name") == "header"), None)
+                    if isinstance(header_struct,dict):
+                        param_list = header_struct.get('type',{}).get('fields',[])
+                        result = [j.get('name') for j in param_list]
+        return result
+
     
     def _prepare_payload(self, data):
         import copy
@@ -277,12 +303,17 @@ class REST2JSON:
                         if self.keep_headers:
                             answer = {'content': content}
                             header = {}
-                            new_head = dict(headers).get('content-type', {})
-                            header.update({'content-type': new_head})
-                            for i in self.entity_config.get('custom_header_variables', []):
+                            custom_header_variables = self.entity_config.get('custom_header_variables', [])
+                            if custom_header_variables and not self.override_header_list:
+                                header_variables = custom_header_variables
+                            elif self.override_header_list:
+                                header_variables = self.override_header_list
+                            else:
+                                header_variables = self.headers_fallback.keys()
+                            for i in header_variables:
                                 header_data = headers.get(i, {})
                                 header.update(header_data)
-                            answer['Headers'] = header
+                            answer['headers'] = header
                             results.append(answer)
                         else:
                             results.append(content)
@@ -307,12 +338,18 @@ class REST2JSON:
                             if self.keep_headers:
                                 answer = {'content': content}
                                 headers = {}
-                                new_head = dict(header).get('content-type', {})
-                                headers.update({'content-type': new_head})
-                                for i in self.entity_config.get('custom_header_variables', []):
+                                custom_header_variables = self.entity_config.get('custom_header_variables', [])
+                                if custom_header_variables and not self.override_header_list:
+                                        header_variables = custom_header_variables
+                                elif self.override_header_list:
+                                    header_variables = self.override_header_list
+                                else:
+                                    header_variables = self.headers_fallback.keys()
+                                for i in header_variables:
                                     header_data = header.get(i, {})
-                                    headers.update(header_data)
-                                answer['Headers'] = headers
+                                    if header_data:
+                                        headers.update({i:header_data})
+                                answer['headers'] = headers
                                 results.append(answer)
                             else:
                                 results.append(content)

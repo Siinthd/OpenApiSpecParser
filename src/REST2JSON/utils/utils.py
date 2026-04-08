@@ -152,12 +152,14 @@ class OpenAPIToSparkConverter:
     def _handle_object_type(self, node: Dict, path: str) -> Dict[str, Any]:
         """Обрабатывает объект"""
         properties = node.get("properties", {})
-        required = node.get("required", [])
+        required_fields = node.get("required", [])
+        if not isinstance(required_fields,list):
+            required_fields = []
         
         fields = []
         for prop_name, prop_schema in properties.items():
             # Определяем nullable
-            nullable = prop_name not in required
+            nullable = prop_name not in required_fields
             
             # Конвертируем тип поля
             field_result = self._convert_node(prop_schema, f"{path}.{prop_name}")
