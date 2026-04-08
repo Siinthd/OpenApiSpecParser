@@ -502,6 +502,7 @@ class OASParser:
                                             "metadata": {}
                                         }
                     header_template['fields'].append(header_param)
+            header['fields'] = header_template
         else:
             header = header_template
         

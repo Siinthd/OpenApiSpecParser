@@ -8,7 +8,7 @@ from src.REST2JSON.utils.OASParser import OASParser
 if __name__ == "__main__":
     
 
-    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_newsAPI.yaml'
 
     import yaml 
 

@@ -309,7 +309,10 @@ class REST2JSON:
                             elif self.override_header_list:
                                 header_variables = self.override_header_list
                             else:
-                                header_variables = self.headers_fallback.keys()
+                                if isinstance(self.headers_fallback,dict):
+                                    header_variables = self.headers_fallback.keys()
+                                else:
+                                    header_variables = []
                             for i in header_variables:
                                 header_data = headers.get(i, {})
                                 header.update(header_data)
@@ -344,7 +347,10 @@ class REST2JSON:
                                 elif self.override_header_list:
                                     header_variables = self.override_header_list
                                 else:
-                                    header_variables = self.headers_fallback.keys()
+                                    if isinstance(self.headers_fallback,dict):
+                                        header_variables = self.headers_fallback.keys()
+                                    else:
+                                        header_variables = []
                                 for i in header_variables:
                                     header_data = header.get(i, {})
                                     if header_data:
