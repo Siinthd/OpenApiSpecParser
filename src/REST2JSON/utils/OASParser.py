@@ -16,8 +16,9 @@ class OASParser:
         self.target_method = copy.copy(method)
         self.schema_infer_fallback = copy.copy(schema_infer_fallback)
         self.spec = copy.deepcopy(loaded_spec)
-        self.base_url = self.__getbaseurl(self.spec) #выполнять если
+        #self.endpoint_base_url = None
         self.post = self.__parse_specification(self.__getEndpoint(self.spec))
+        self.base_url = self.__getbaseurl(self.spec)
         
         
         ###Формируется структура без добавления кастомных данных
@@ -79,9 +80,9 @@ class OASParser:
                     return endpoint
         else:
             raise 'параметры endpoint_override/method_override/name не описаны в конфигурации. Дальнейшая работа невозможна.'
-
+        #Тест отстуствие данных для эндпоинт
         if endpoint is None:
-            raise f'endpoint_url:{self.target_endpoint} или OperationID:{self.operation_Name} отсутствуют в спецификации. Дальнейшая работа невозможна.'
+            raise f'не удалось определить эндпоинт. Дальнейшая работа невозможна.'
 
     def __resolve_refs_in_operation(self, operation_spec: dict, ref_dict: dict) -> dict:
         """
@@ -99,7 +100,7 @@ class OASParser:
                         if ref_path in ref_dict:
                             # Заменяем весь словарь на содержимое схемы
                             operation_spec[key] = ref_dict[ref_path]
-                        elif self.schema_infer_fallback:
+                        elif not self.schema_infer_fallback:
                             raise KeyError(f"Источника '{ref_path}' нет в разделе #/components")
                     else:
                         # Рекурсивно обрабатываем дальше
@@ -114,7 +115,7 @@ class OASParser:
                         if ref_path in ref_dict:
                             # Заменяем элемент списка на содержимое схемы
                             operation_spec[i] = ref_dict[ref_path]
-                        elif self.schema_infer_fallback:
+                        elif not self.schema_infer_fallback:
                             raise KeyError(f"Источника '{ref_path}' нет в разделе #/components")
                     else:
                         self.__resolve_refs_in_operation(item, ref_dict)
@@ -130,6 +131,9 @@ class OASParser:
             если сервер в формате переменной то (раскрыть из enum) - 
             взять сначала default потом первый из enum
         '''
+        #TODO:расскометнировать для исправления
+        #if self.endpoint_base_url:
+        #    return self.endpoint_base_url
         servers = spec_dict.get('servers', [])
         if not servers:
             return ''
@@ -217,12 +221,32 @@ class OASParser:
         
         return processed_headers
     
+    def __find_endpoint_server(self,endpoint_dict):
+        for method_name, method_details in endpoint_dict.items():
+            if isinstance(method_details,dict):
+                server =  method_details.get('servers',None)
+                if server:
+                    if isinstance(server,list):
+                        if isinstance(server[0],dict):
+                            firstserv = server[0].get('url', '').rstrip('/')
+                            return firstserv
+                        else:
+                            return server[0]
+                    if isinstance(server,dict):
+                        return server.get('url', '')
+                    else:
+                        return server
+        return None
 
 
-    def __parse_specification(self, spec_dict: dict) -> dict:
+
+    def __parse_specification(self, endpoint_dict: dict) -> dict: 
             result = {}
+            #TODO: добавить поиск servers внутри endpoint
+            #TODO:расскометнировать для исправления
+            #self.endpoint_base_url = self.__find_endpoint_server(endpoint_dict)
             path = self.target_endpoint
-            for method_name, method_details in spec_dict.items():
+            for method_name, method_details in endpoint_dict.items():
                 method_upper = method_name.upper()
                 if isinstance(method_details,dict):
                     parameters =  method_details.get('parameters',None)
@@ -419,7 +443,7 @@ class OASParser:
                         result = __resolve_obj(resolved, stack)
                         stack.pop()
                         return result
-                    elif self.schema_infer_fallback:
+                    elif not self.schema_infer_fallback:
                         raise KeyError(f"Источника '{ref}' нет в компонентах спецификации")
                 
                 result = {}
@@ -434,7 +458,7 @@ class OASParser:
                                 resolved = raw_components[value]
                                 result[key] = __resolve_obj(resolved, stack)
                                 stack.pop()
-                        elif self.schema_infer_fallback:
+                        elif not self.schema_infer_fallback:
                             raise KeyError(f"Источника '{value}' нет в компонентах спецификации")
                     else:
                         result[key] = __resolve_obj(value, stack)
@@ -467,7 +491,7 @@ class OASParser:
                     "type": "struct",
                     "fields": [
                         {{
-                            "name": "header",
+                            "name": "headers",
                             "nullable": true,
                             "type": {0},
                             "metadata": {{}}
@@ -514,7 +538,7 @@ class OASParser:
             raise('Неккоректная структура схемы.')
         has_content,has_header = False,False
         for field in data['fields']:
-            if field.get('name') == 'header':
+            if field.get('name') == 'headers':
                 has_header = True
             if field.get('name') == 'content':
                 has_content = True
@@ -539,7 +563,7 @@ class OASParser:
 
             new_headers = header_template
 
-            template =  {"name": "header",
+            template =  {"name": "headers",
                                 "nullable": True,
                                 "type": {},
                                 "metadata":{} }
@@ -552,7 +576,7 @@ class OASParser:
                             "metadata":{} }
             template["type"] = self.__resolve_override_schema(data)
             #чистим первый уровень
-            data["fields"] = [f for f in data["fields"] if f.get("name") == "header"]
+            data["fields"] = [f for f in data["fields"] if f.get("name") == "headers"]
             data['fields'].append(template)
             #остается еще поле вне content и header
         return data
@@ -567,7 +591,7 @@ class OASParser:
         content_fields = []
         
         for field in data['fields']:
-            if field.get('name') == 'header':
+            if field.get('name') == 'headers':
                 continue
             
             if field.get('name') == 'content':

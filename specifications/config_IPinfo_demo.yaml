@@ -1,0 +1,136 @@
+
+proc:
+  src:
+    name: "getLiteInformationByIp"
+    conn_type: 'rest2json' 
+    conn_params:
+      retries: 3
+      timeout: 30  
+      base_override: "https://api.ipinfo.io"
+      endpoint_override: "/lite/{ip}"
+      method_override: 'get'
+      spec_fallback: |
+                    openapi: 3.0.0
+                    info:
+                    servers:
+                      - url: "https://ipinfo.io/"
+                    paths:
+                      "/lite/{ip}":
+                        get:
+                          operationId: getLiteInformationByIp
+                          responses:
+                            "200":
+                              content:
+                                application/json:
+                                  schema:
+                                      $ref: "#/components/schemas/LiteResponse"
+                    components:
+                      schemas:
+                        LiteResponse:
+                          type: object
+                          properties:
+                            ip:
+                              type: string
+                              example: "8.8.8.8"
+                            asn:
+                              type: string
+                              example: "AS15169"
+                            as_name:
+                              type: string
+                              example: "Google LLC"
+                            as_domain:
+                              type: string
+                              example: "google.com"
+                            country_code:
+                              type: string
+                              example: "US"
+                            country:
+                              type: string
+                              example: "United States"
+                            continent_code:
+                              type: string
+                              example: "NA"
+                            continent:
+                              type: string
+                              example: "North America"
+      spec_fallback2: |
+                    openapi: 3.0.0
+                    info:
+                    servers:
+                      - url: "https://ipinfo.io/"
+                    paths:
+                      "/lite/{ip}":
+                        get:
+                          operationId: getLiteInformationByIp
+                          responses:
+                            "200":
+                              headers:
+                                Vary:
+                                  description: Тестовый заголовок
+                                  schema:
+                                    type: string
+                              content:
+                                application/json:
+                                  schema:
+                                      $ref: "#/components/schemas/LiteResponse"
+                    components:
+                      schemas:
+                        LiteResponse:
+                          type: object
+                          properties:
+                            ip:
+                              type: string
+                              example: "8.8.8.8"
+                            asn:
+                              type: string
+                              example: "AS15169"
+                            as_name:
+                              type: string
+                              example: "Google LLC"
+                            as_domain:
+                              type: string
+                              example: "google.com"
+                            country_code:
+                              type: string
+                              example: "US"
+                            country:
+                              type: string
+                              example: "United States"
+                            continent_code:
+                              type: string
+                              example: "NA"
+                            continent:
+                              type: string
+                              example: "North America"
+
+    data:
+      schema_gen: 1
+      schema_override:
+      inferschema: False
+      payload: [{'ip':'8.8.8.8'}]
+      schema_keep_headers: True
+      schema_infer_fallback: true
+      type_mapping_override:
+        "null": "null"
+  transform:
+    enabled: false
+  tgt:
+auth:
+  src:
+    body: 
+      token: "31888820c7dc51"
+
+env:
+  json:
+    type_mapping:
+      int32: integer
+      int64: long
+      float: float
+      double: double
+      date: string
+      date-time: string
+      binary: binary
+    headers_fallback:
+      content-type : string 
+    
+

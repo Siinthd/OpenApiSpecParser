@@ -24,13 +24,6 @@ class ClientAdapter(URESTClient):
     def __init__(self, entity,extra_headers,base_url,timeout):
         super().__init__(entity, extra_headers,base_url,timeout)
     
-    
-
-    # TODO 
-    # проверка есть ли ключи словаря в спеке
-    # Если required один то подставить его к списку значений
-    # формировать data, формировать очередь единичных загрузок
-    # Текущая реализация непотокобезопасна
 
 class REST2JSON:
     def __init__(self,
@@ -82,6 +75,9 @@ class REST2JSON:
         return False
 
     def _load_specification_(self,src,url) ->dict:
+        #TODO: починить переход к fallback
+        #TODO: проверка маски - не ок == исключение
+        #TODO: проверка маски - не ок == исключение
         import yaml 
         if url: 
             if isinstance(url,list):
@@ -106,7 +102,9 @@ class REST2JSON:
         try:
             if re.match(r'^\w+:\/\/\w',url):
                 parsed = urlparse(url)
-                if parsed.scheme in ('http', 'https'):
+                if parsed.scheme in ('http', 'https'): 
+                    #TODO: Поставить ретрай и в случае 3 неудач == берем следующий элемент из списка
+                    #      В случае падения скачать с файловой системы
                     response = requests.get(url)
                     response.raise_for_status()
                     response.encoding = response.apparent_encoding or 'utf-8'
@@ -122,8 +120,12 @@ class REST2JSON:
                     # 4. Открытие файла
                     if os.path.isfile(abs_path) and os.access(abs_path, os.R_OK):
                         response = open(abs_path, 'r', encoding='utf-8').read()
+                    #TODO : расскометировать для исправления
+                    #else:
+                    #    return None
                 else:
                     return None 
+                #TODO: вывалится исключение
                 data = yaml.safe_load(response)
                 return data       
             return None
@@ -160,7 +162,7 @@ class REST2JSON:
             type_mapping.update(src_data.get('type_mapping_override',{}))
             payload = src_data.get('payload',None)
             schema_override = src_data.get('schema_override',None)
-            keep_headers = src_data.get('schema_keep_header',None)
+            keep_headers = src_data.get('schema_keep_headers',None)
             schema_infer_fallback = src_data.get('schema_infer_fallback',None)
             if proc_conn_params:
                 endpoint_override = proc_conn_params.get('endpoint_override',None)
