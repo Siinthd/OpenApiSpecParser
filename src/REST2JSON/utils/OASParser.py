@@ -575,8 +575,9 @@ class OASParser:
                             "type": {},
                             "metadata":{} }
             template["type"] = self.__resolve_override_schema(data)
-            #чистим первый уровень
+            #чистим первый уровень - оставляем только headers
             data["fields"] = [f for f in data["fields"] if f.get("name") == "headers"]
+            #добавиляем к headers content
             data['fields'].append(template)
             #остается еще поле вне content и header
         return data

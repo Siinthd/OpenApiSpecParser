@@ -85,6 +85,7 @@ class REST2JSON:
                     data = self._get_specfromurl(position)
                     if data:
                         return data
+        #TODO: добавить внятное исключение
             else:        
                 data = self._get_specfromurl(url)
         elif src:
