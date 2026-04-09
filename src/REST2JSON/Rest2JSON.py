@@ -101,7 +101,10 @@ class REST2JSON:
     def _get_specfromurl(self,url):
         import requests,yaml,re
         try:
-            if re.match(r'^\w+:\/\/\w',url):
+            pattern = r'^\w+:\/\/\w'
+            if os.name !='nt':
+                pattern = r'^\w+:\/\/\/\w'
+            if re.match(pattern,url):
                 parsed = urlparse(url)
                 if parsed.scheme in ('http', 'https'): 
                     #TODO: Поставить ретрай и в случае 3 неудач == берем следующий элемент из списка
