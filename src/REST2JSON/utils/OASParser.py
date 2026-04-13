@@ -10,12 +10,12 @@ from typing import Any
 
 
 class OASParser:
-    def __init__(self, OpName:str = None,endpoint_url:str= None,method:str= None,schema_infer_fallback:bool = True,loaded_spec:dict = None):
+    def __init__(self, OpName:str = None,endpoint_url:str= None,method:str= None,schema_infer_fallback:bool = True,loaded_spec:str = None):
         self.operation_Name = copy.copy(OpName)
         self.target_endpoint = copy.copy(endpoint_url)
         self.target_method = copy.copy(method)
         self.schema_infer_fallback = copy.copy(schema_infer_fallback)
-        self.spec = copy.deepcopy(loaded_spec)
+        self.spec = self.open_spec(copy.deepcopy(loaded_spec))
         #self.endpoint_base_url = None
         self.post = self.__parse_specification(self.__getEndpoint(self.spec))
         self.base_url = self.__getbaseurl(self.spec)
@@ -28,6 +28,13 @@ class OASParser:
         self.response_map = self.endpoint_section.get('response',None)
         self.headers_map = self.form_header(self.endpoint_section.get('headers',None))
 
+    def open_spec(self,src):
+        import yaml
+        try:
+            data = yaml.safe_load(src)
+        except:
+            raise ValueError("В конфигурации указан невалидный текст спецификации OpenAPI")
+        return data
 
     def form_header(self, header_raw: dict): #
         if header_raw:
@@ -79,10 +86,10 @@ class OASParser:
                 if endpoint:
                     return endpoint
         else:
-            raise 'параметры endpoint_override/method_override/name не описаны в конфигурации. Дальнейшая работа невозможна.'
+            raise ValueError('параметры endpoint_override/method_override/name не описаны в конфигурации. Дальнейшая работа невозможна.')
         #Тест отстуствие данных для эндпоинт
         if endpoint is None:
-            raise f'не удалось определить эндпоинт. Дальнейшая работа невозможна.'
+            raise ValueError('не удалось определить эндпоинт. Дальнейшая работа невозможна.')
 
     def __resolve_refs_in_operation(self, operation_spec: dict, ref_dict: dict) -> dict:
         """
@@ -225,7 +232,7 @@ class OASParser:
         for method_name, method_details in endpoint_dict.items():
             if isinstance(method_details,dict):
                 server =  method_details.get('servers',None)
-                if server:
+                if server: #TODO: брать весь список а не 1й элемент
                     if isinstance(server,list):
                         if isinstance(server[0],dict):
                             firstserv = server[0].get('url', '').rstrip('/')
@@ -472,212 +479,10 @@ class OASParser:
             resolved_components[ref_key] = __resolve_obj(raw_components[ref_key])
         
         return resolved_components
-
     
-
     def __convert_schema_to_sprkfrm(self,response_map,type_mapping):
         converter = OpenAPIToSparkConverter(type_mapping)
         spark_json_schema = converter.convert(response_map)
         return spark_json_schema
         
 
-    def add_header_to_content(self,content,header,headers_fallback,type_mapping):
-        '''
-        Работает когда:
-        Надо собрать структуру из ничего - Кейс №6
-        '''
-        TEMPLATE = '''
-                {{
-                    "type": "struct",
-                    "fields": [
-                        {{
-                            "name": "headers",
-                            "nullable": true,
-                            "type": {0},
-                            "metadata": {{}}
-                        }},
-                        {{
-                            "name": "content",
-                            "nullable": true,
-                            "type": {1},
-                            "metadata": {{}}
-                        }}
-                    ]
-                }}
-                '''
-
-        header_template = {
-            "type": "struct",
-            "fields": []
-            }
-        
-        import json
-        if header:
-            fields = header.get('fields',[])
-            fields += header_template.get('fields',[])
-            header['fields'] = fields
-        elif headers_fallback:
-            for i,j in headers_fallback.items():
-                if i not in self.request.get('custom_header_variables'):
-                    header_param = {
-                                            "name": i,
-                                            "nullable": True,
-                                            "type": type_mapping.get(j,'string'),
-                                            "metadata": {}
-                                        }
-                    header_template['fields'].append(header_param)
-            header = header_template
-        else:
-            header = header_template
-        
-        result = TEMPLATE.format(json.dumps(header),json.dumps(content))
-        return json.loads(result) 
-
-    def __check_schema_override(self,data,headers_fallback,type_mapping):
-        if not isinstance(data, dict) or 'fields' not in data:
-            raise('Неккоректная структура схемы.')
-        has_content,has_header = False,False
-        for field in data['fields']:
-            if field.get('name') == 'headers':
-                has_header = True
-            if field.get('name') == 'content':
-                has_content = True
-        if has_header and has_content:
-            return data 
-    
-
-        if not has_header:
-            header_template = {
-                "type": "struct",
-                "fields": []
-                }
-            if headers_fallback: 
-                for i,j in headers_fallback.items(): #сконвертировать
-                    header_param = {
-                                    "name": i,
-                                    "nullable": True,
-                                    "type": type_mapping.get(j,'string'),
-                                    "metadata": {}
-                                }
-                    header_template['fields'].append(header_param)
-
-            new_headers = header_template
-
-            template =  {"name": "headers",
-                                "nullable": True,
-                                "type": {},
-                                "metadata":{} }
-            template["type"] = new_headers
-            data['fields'].append(template)
-        if not has_content:
-            template =  {"name": "content",
-                            "nullable": True,
-                            "type": {},
-                            "metadata":{} }
-            template["type"] = self.__resolve_override_schema(data)
-            #чистим первый уровень - оставляем только headers
-            data["fields"] = [f for f in data["fields"] if f.get("name") == "headers"]
-            #добавиляем к headers content
-            data['fields'].append(template)
-            #остается еще поле вне content и header
-        return data
-
-
-    def __resolve_override_schema(self, data):
-        #TEST: keep_header = 0 + schema_override not null, поле header дропаем, если есть,content распаковываем на первый уровень - уронить при конфликте имен
-        if not isinstance(data, dict) or 'fields' not in data:
-            raise Exception('Некорректная структура схемы.')
-        
-        new_fields = []
-        content_fields = []
-        
-        for field in data['fields']:
-            if field.get('name') == 'headers':
-                continue
-            
-            if field.get('name') == 'content':
-                field_type = field.get('type', {})
-                type_name = field_type.get('type')
-                
-                if type_name == 'struct':
-                    content_fields = field_type.get('fields', [])
-                elif type_name == 'array':
-                    element_type = field_type.get('elementType', {})
-                    if element_type.get('type') == 'struct':
-                        content_fields = element_type.get('fields', [])
-                    else:
-                        content_fields = [field] 
-                else:
-                    # Для других типов
-                    content_fields = [field]
-            else:
-                new_fields.append(field)
-        
-        new_fields.extend(content_fields)
-
-        existing_names = [f['name'] for f in new_fields]
-        unique = set(existing_names)
-
-        if len(existing_names) != len(unique):
-            raise Exception("Конфликт имен полей")
-        
-        if len(new_fields) == 0:
-                  return {"type": "struct",
-                         "fields":[]}
-        return {
-            "type": "struct",
-            "fields": new_fields
-        }
-
-    def get_schema(self,keep_headers,schema_override,headers_fallback,type_mapping,raw:bool = False):
-        import json
-        if not headers_fallback:
-            headers_fallback = {}
-        custom_header_variables = self.request.get('custom_header_variables',[]) #получаем список атрибутов хидера из спеки / + при schema_override = 1 этот список должен заполнится из schema_override
-        if not isinstance(raw,bool):
-            raise TypeError('Неподдерживаемый тип данных')
-        if self.response_map is None:
-            raise('В предложенной спецификации отсутствует раздел response.')
-        
-            #+Кейс 1. keep_header = 1 + schema_override not null , есть header и content - ничего не делаем
-            #+Кейс 2. keep_header = 1 + schema_override not null , добавить content если нет
-            #+Кейс 3. keep_header = 1 + schema_override not null , добавить header  если нет
-            #+Кейс 4. keep_header = 0 + schema_override not null, поле header дропаем, если есть,content распаковываем на первый уровень - уронить при конфликте имен
-            #+Кейс 5. keep_header = 0 + schema_override is null , возвращаем schema
-            #+Кейс 6. keep_header = 1 + schema_override is null, добавляем header в соотстветвие с конфигурацией + (реальный header из спеки - мб их не будет)
-            #+Кейс 7. keep_header = 1 + schema_override is null, raw = True  
-            #+Кейс 8. keep_header = 0 + schema_override is null, raw = True  
-        if raw: #без конфигурации, кейс #7-8
-            properties = {}
-            if keep_headers:
-                import copy
-                header = copy.deepcopy(self.get_headers_map())
-                if header is not None:
-                    for i,j in headers_fallback.items():
-                        if custom_header_variables:
-                            if i not in custom_header_variables:
-                                header['properties'].update({i:{'schema':{'type': j}}})
-                            else:
-                                properties[i] = {'schema':{'type': j}}
-                else:
-                    header = {'type': 'object','properties':{}}
-                    for i,j in headers_fallback.items():
-                        if custom_header_variables:
-                            if i not in custom_header_variables:
-                                properties[i] = {'schema':{'type': j}}
-                        else:
-                            properties[i] = {'schema':{'type': j}}
-                    header['properties'] = properties
-                return {'content':self.get_response_map(),'headers':header} 
-            else:
-                return self.get_response_map() #Кейс 8
-        else:
-            if not keep_headers:
-                if schema_override:
-                    return self.__resolve_override_schema(json.loads(schema_override)) # Кейс 4
-                return self.getStructTypeSchema(type_mapping) # Кейс 5
-            elif keep_headers:
-                if schema_override: #Кейс 1-3
-                    return self.__check_schema_override(json.loads(schema_override),headers_fallback,type_mapping)
-                else:
-                    return self.add_header_to_content(self.getStructTypeSchema(type_mapping),self.getStructTypeHeader(type_mapping),headers_fallback,type_mapping) #Кейс 6

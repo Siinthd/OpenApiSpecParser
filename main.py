@@ -8,8 +8,8 @@ from src.REST2JSON.utils.OASParser import OASParser
 if __name__ == "__main__":
     
 
-    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_IPInfo_demo.yaml'
-    #config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata_demo.yaml'
+    #config_file = 'C:/Users/kdenis/Documents/Work/configs/config_IPInfo_demo.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata_demo.yaml'
 
     import yaml 
 
