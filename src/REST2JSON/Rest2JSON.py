@@ -375,7 +375,7 @@ class REST2JSON:
             self.__in_context = False
             self.__client_adapter.close()
             
-    def add_header_to_content(self,content,header,headers_fallback,type_mapping):
+    def add_header_to_content(self,content,header):
         '''
         Работает когда:
         Надо собрать структуру из ничего - Кейс №6
@@ -410,13 +410,13 @@ class REST2JSON:
             fields = header.get('fields',[])
             fields += header_template.get('fields',[])
             header['fields'] = fields
-        elif headers_fallback:
-            for i,j in headers_fallback.items():
+        elif self.headers_fallback:
+            for i,j in self.headers_fallback.items():
                 if i not in self.override_header_list:
                     header_param = {
                                             "name": i,
                                             "nullable": True,
-                                            "type": type_mapping.get(j,'string'),
+                                            "type": self.type_mapping.get(j,'string'),
                                             "metadata": {}
                                         }
                     header_template['fields'].append(header_param)
@@ -427,9 +427,9 @@ class REST2JSON:
         result = TEMPLATE.format(json.dumps(header),json.dumps(content))
         return json.loads(result) 
 
-    def __check_schema_override(self,schema,headers_fallback,type_mapping):
+    def __check_schema_override(self,schema):
         if not isinstance(schema, dict) or 'fields' not in schema:
-            raise KeyError('Неккоректная структура схемы.')
+            raise KeyError('Модуль REST2JSON: Некорректное значение параметра schema_override. ожидается схема spark.df в json-формате')
         has_content,has_header = False,False
         for field in schema['fields']:
             if field.get('name') == 'headers':
@@ -445,12 +445,12 @@ class REST2JSON:
                 "type": "struct",
                 "fields": []
                 }
-            if headers_fallback: 
-                for i,j in headers_fallback.items(): #сконвертировать
+            if self.headers_fallback: 
+                for i,j in self.headers_fallback.items(): #сконвертировать
                     header_param = {
                                     "name": i,
                                     "nullable": True,
-                                    "type": type_mapping.get(j,'string'),
+                                    "type": self.type_mapping.get(j,'string'),
                                     "metadata": {}
                                 }
                     header_template['fields'].append(header_param)
@@ -479,7 +479,7 @@ class REST2JSON:
     def __resolve_override_schema(self, schema):
         #TEST: keep_header = 0 + schema_override not null, поле header дропаем, если есть,content распаковываем на первый уровень - уронить при конфликте имен
         if not isinstance(schema, dict) or 'fields' not in schema:
-            raise KeyError('Некорректная структура схемы.')
+            raise KeyError('Модуль REST2JSON: Некорректное значение параметра schema_override. ожидается схема spark.df в json-формате')
         
         new_fields = []
         content_fields = []
@@ -527,9 +527,9 @@ class REST2JSON:
         if not self.headers_fallback:
             headers_fallback = {}
         if not isinstance(raw,bool):
-            raise TypeError('Неподдерживаемый тип данных')
+            raise TypeError('Некорректный формат входного параметра')
         if self.__parser_adapter.get_response_map() is None:
-            raise ValueError('В предложенной спецификации отсутствует раздел response.')
+            raise ValueError('Спецификация сервиса не содержит схемы данных.')
         
             #+Кейс 1. keep_header = 1 + schema_override not null , есть header и content - ничего не делаем
             #+Кейс 2. keep_header = 1 + schema_override not null , добавить content если нет
@@ -567,10 +567,18 @@ class REST2JSON:
         else:
             if not self.keep_headers:
                 if self.schema_override:
-                    return self.__resolve_override_schema(json.loads(self.schema_override)) # Кейс 4
+                    try:
+                        schema = json.loads(self.schema_override)
+                        return self.__resolve_override_schema(schema) # Кейс 4
+                    except:
+                        raise TypeError('Модуль REST2JSON: Некорректное значение параметра schema_override. ожидается схема spark.df в json-формате')
                 return self.__parser_adapter.getStructTypeSchema(self.type_mapping) # Кейс 5
             elif self.keep_headers:
                 if self.schema_override: #Кейс 1-3
-                    return self.__check_schema_override(json.loads(self.schema_override),headers_fallback,self.type_mapping)
+                    try:
+                        schema = json.loads(self.schema_override)
+                        return self.__check_schema_override(schema)
+                    except:
+                        raise TypeError('Модуль REST2JSON: Некорректное значение параметра schema_override. ожидается схема spark.df в json-формате')
                 else:
-                    return self.add_header_to_content(self.__parser_adapter.getStructTypeSchema(self.type_mapping),self.__parser_adapter.getStructTypeHeader(self.type_mapping),self.headers_fallback,self.type_mapping) #Кейс 6
+                    return self.add_header_to_content(self.__parser_adapter.getStructTypeSchema(self.type_mapping),self.__parser_adapter.getStructTypeHeader(self.type_mapping)) #Кейс 6

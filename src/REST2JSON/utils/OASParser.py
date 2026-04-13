@@ -11,6 +11,17 @@ from typing import Any
 
 class OASParser:
     def __init__(self, OpName:str = None,endpoint_url:str= None,method:str= None,schema_infer_fallback:bool = True,loaded_spec:str = None):
+        """
+        Парсер OpenAPI-спецификации
+        
+        Args:
+            OpName: OperationID конкретного эндпоинта
+            endpoint_url: ссылка на  эндпоинт
+            method: метод эндпоинта
+            schema_infer_fallback: Флаг,определяющий качество парсинга -- True - ошибки резолвинга игнорируютс
+            loaded_spec: текст спецификации в формате str
+        """
+
         self.operation_Name = copy.copy(OpName)
         self.target_endpoint = copy.copy(endpoint_url)
         self.target_method = copy.copy(method)
@@ -28,14 +39,37 @@ class OASParser:
         self.headers_map = self.form_header(self.endpoint_section.get('headers',None))
 
     def open_spec(self,src):
+        """
+        Загрузка текста спецификации в yaml
+        
+        Args:
+            src: текст спецификации в формате str
+        Out:
+            data: спецификации в формате json(dict)
+        """
+
         import yaml
         try:
             data = yaml.safe_load(src)
         except:
-            raise ValueError("В конфигурации указан невалидный текст спецификации OpenAPI")
+            raise ValueError("Некорректный формат спецификации.")
         return data
 
     def form_header(self, header_raw: dict): #
+        """
+        Метод построения структуры json в формат схемы OpenAPI
+        
+        Args:
+            header_raw: кусок структуры(schema)
+        Out:
+            структура: {
+                        type:object
+                        properties:
+                                {
+                                    schema: {some_data}
+                                }
+                        }
+        """
         if header_raw:
             result = {'type': 'object', 'properties': None}
             result['properties'] = header_raw
@@ -44,27 +78,70 @@ class OASParser:
 
 
     def getStructTypeSchema(self,type_mapping):
+        """
+        Метод получения структуры ответа в StructType - формате
+        
+        Args:
+            type_mapping: маппинг типов из конфигурации
+        Out:
+            structType- json
+        """
+
         return self.__convert_schema_to_sprkfrm(copy.deepcopy(self.response_map),type_mapping)
     
     def getStructTypeHeader(self,type_mapping):
+
+        """
+        Метод получения структуры хэдэра в StructType - формате
+        
+        Args:
+            type_mapping: маппинг типов из конфигурации
+        Out:
+            structType- json
+        """
         if self.headers_map:
             return self.__convert_schema_to_sprkfrm(copy.deepcopy(self.headers_map),type_mapping)
         return {}
     
     def getSpecification(self):
+
+        """
+        Функция получения текста спецификации
+        
+        Out:
+            спецификация в формате str
+        """
         return self.spec
     
     def __findendpointbypath(self,spec_dict: dict) -> dict:
+
+        """
+        Поиск подструктуры спецификации, по ссылке на эндпоинт
+        
+        Args:
+            spec_dict: спецификация в формате json
+        Out:
+            конкретный эндпоинт из раздела path в формате json
+        """
+                
         endpoints = spec_dict.get('paths', {})
         endpoint =  endpoints.get(self.target_endpoint,None)
         if endpoint:
-            for metod,value in endpoint.items():
-                if metod == self.target_method:
-                    return {metod:value}#берем нужный метод
+            for method,value in endpoint.items():
+                if method == self.target_method:
+                    return {method:value}
         return None
         
 
     def __findendpointbyOpId(self,spec_dict: dict) -> dict:
+        """
+        Поиск подструктуры спецификации, по наименованию операции OperationID
+        
+        Args:
+            spec_dict: спецификация в формате json
+        Out:
+            конкретный эндпоинт из раздела path в формате json
+        """
         for path, methods in spec_dict.get('paths', {}).items():
             for method_name, method_details in methods.items():
                 operation_id = method_details.get('operationId',None)
@@ -74,6 +151,14 @@ class OASParser:
         return None
 
     def __getEndpoint(self,spec:dict) -> dict: 
+        """
+        Поиск подструктуры спецификации
+        
+        Args:
+            spec_dict: спецификация в формате json
+        Out:
+            конкретный эндпоинт из раздела path в формате json
+        """
         endpoint = None
         #Сначала проверяем по override endpoint_url
         if self.target_endpoint and self.target_method:
