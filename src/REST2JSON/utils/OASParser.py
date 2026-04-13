@@ -16,10 +16,9 @@ class OASParser:
         self.target_method = copy.copy(method)
         self.schema_infer_fallback = copy.copy(schema_infer_fallback)
         self.spec = self.open_spec(copy.deepcopy(loaded_spec))
-        #self.endpoint_base_url = None
+        self.endpoint_base_url = None
         self.post = self.__parse_specification(self.__getEndpoint(self.spec))
         self.base_url = self.__getbaseurl(self.spec)
-        
         
         ###Формируется структура без добавления кастомных данных
         #json для content и header
@@ -138,9 +137,8 @@ class OASParser:
             если сервер в формате переменной то (раскрыть из enum) - 
             взять сначала default потом первый из enum
         '''
-        #TODO:расскометнировать для исправления
-        #if self.endpoint_base_url:
-        #    return self.endpoint_base_url
+        if self.endpoint_base_url:
+            return self.endpoint_base_url
         servers = spec_dict.get('servers', [])
         if not servers:
             return ''
@@ -249,9 +247,7 @@ class OASParser:
 
     def __parse_specification(self, endpoint_dict: dict) -> dict: 
             result = {}
-            #TODO: добавить поиск servers внутри endpoint
-            #TODO:расскометнировать для исправления
-            #self.endpoint_base_url = self.__find_endpoint_server(endpoint_dict)
+            self.endpoint_base_url = self.__find_endpoint_server(endpoint_dict)
             path = self.target_endpoint
             for method_name, method_details in endpoint_dict.items():
                 method_upper = method_name.upper()

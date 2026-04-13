@@ -63,7 +63,7 @@ class REST2JSON:
 
     def __enter__(self):
         if self.__in_context:
-            raise RuntimeError("Объект уже используется.")
+            raise RuntimeError("Объект клиента уже создан используется.")
         self.__client_adapter.__enter__()
         self.__in_context = True
         return self
@@ -74,8 +74,6 @@ class REST2JSON:
         return False
 
     def _load_specification_(self,src,url):
-        #TODO: починить переход к fallback
-        #TODO: проверка маски - не ок == исключение
 
         if url: 
             if isinstance(url,list):
@@ -100,8 +98,6 @@ class REST2JSON:
             if re.match(r'^\w+:(\/{2,3})\w',url): #2 или 3  /// после :
                 parsed = urlparse(url)
                 if parsed.scheme in ('http', 'https'): 
-                    #TODO: Поставить ретрай и в случае 3 неудач == берем следующий элемент из списка
-                    #      В случае падения скачать с файловой системы
                     for attempt in range(self.retries):
                         try:
                             print(f'Попытка чтения файла по ссылке {url}',end="")
@@ -126,14 +122,12 @@ class REST2JSON:
                     if os.path.isfile(abs_path) and os.access(abs_path, os.R_OK):
                         print(f'Попытка чтения файла по ссылке {abs_path}',end="")
                         response = open(abs_path, 'r', encoding='utf-8').read()
-                    #TODO : расскометировать для исправления
                     else:
                         print(f'Не удалось найти указанный файл {abs_path}')
                         return None
                 else:
                     print(f'Непподерживаемая протокол: {url}')
                     return None 
-                #TODO: вывалится исключение
                 if response:
                     print(' успешна')
                     return response   
@@ -290,7 +284,7 @@ class REST2JSON:
         datatype = type(data).__name__ #Явная проверка на наличие аргумента в вызове метода
         if datatype == 'NoneType':
             data = self.payload
-        if self.__in_context:
+        if self.__in_context: 
             return self.__direct(data)
         else:
             payload = self._prepare_payload(data)
@@ -580,4 +574,3 @@ class REST2JSON:
                     return self.__check_schema_override(json.loads(self.schema_override),headers_fallback,self.type_mapping)
                 else:
                     return self.add_header_to_content(self.__parser_adapter.getStructTypeSchema(self.type_mapping),self.__parser_adapter.getStructTypeHeader(self.type_mapping),self.headers_fallback,self.type_mapping) #Кейс 6
-
