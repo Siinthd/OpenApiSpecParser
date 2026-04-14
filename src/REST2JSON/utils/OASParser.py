@@ -54,7 +54,7 @@ class OASParser:
         try:
             data = yaml.safe_load(src)
         except:
-            raise ValueError("Некорректный формат спецификации.")
+            raise ValueError("spec_url, spec_fallback: полученная спецификация имеет некорректный формат ")
         return data
 
     def form_header(self, header_raw: dict):
@@ -176,11 +176,11 @@ class OASParser:
             if endpoint:
                 return endpoint
         else:
-            raise ValueError('В конфигурации не указаны необходимые параметры: name или endpoint_override + method override.')
+            raise ValueError('name, endpoint_override, method_override: в конфигурации не указаны необходимые параметры')
         
         # Проверка наличия данных для эндпоинта
         if endpoint is None:
-            raise ValueError('По спецификации не удалось определить адрес для отправки запроса.')
+            raise ValueError('name, endpoint_override, method_override: по спецификации не удалось определить адрес для отправки запроса')
         
         return endpoint
 
@@ -208,7 +208,7 @@ class OASParser:
                             # Заменяем весь словарь на содержимое схемы
                             operation_spec[key] = ref_dict[ref_path]
                         elif not self.schema_infer_fallback:
-                            raise KeyError(f"Не удалось сформировать схему данных на основе спецификации: не описан '{ref_path}' ")
+                            raise KeyError(f"spec_url, spec_fallback: не удалось сформировать схему данных на основе спецификации: не описан '{ref_path}' ")
                     else:
                         # Рекурсивно обрабатываем дальше
                         self.__resolve_refs_in_operation(value, ref_dict)
@@ -223,7 +223,7 @@ class OASParser:
                             # Заменяем элемент списка на содержимое схемы
                             operation_spec[i] = ref_dict[ref_path]
                         elif not self.schema_infer_fallback:
-                            raise KeyError(f"Не удалось сформировать схему данных на основе спецификации: не описан '{ref_path}' ")
+                            raise KeyError(f"spec_url, spec_fallback: не удалось сформировать схему данных на основе спецификации: не описан '{ref_path}' ")
                     else:
                         self.__resolve_refs_in_operation(item, ref_dict)
                 elif isinstance(item, list):
@@ -446,7 +446,6 @@ class OASParser:
                 endpoint_data['method'] = method_upper
                 endpoint_data['path'] = path
                 result.update(endpoint_data)
-        
         return result
     
     def __find_response_schema(self, obj: Any, depth: int = 0, max_depth: int = 15) -> dict | str | None:
@@ -663,7 +662,7 @@ class OASParser:
                         stack.pop()
                         return result
                     elif not self.schema_infer_fallback:
-                        raise KeyError(f"Не удалось сформировать схему данных на основе спецификации: Источника '{ref}' нет в компонентах спецификации") 
+                        raise KeyError(f"spec_url, spec_fallback: не удалось сформировать схему данных на основе спецификации: не описан '{ref}' ")
                 
                 result = {}
                 for key, value in obj.items():
@@ -678,7 +677,7 @@ class OASParser:
                                 result[key] = __resolve_obj(resolved, stack)
                                 stack.pop()
                         elif not self.schema_infer_fallback:
-                            raise KeyError(f"Не удалось сформировать схему данных на основе спецификации: Источника '{value}' нет в компонентах спецификации") 
+                            raise KeyError(f"spec_url, spec_fallback: не удалось сформировать схему данных на основе спецификации: не описан '{ref}' ")
                     else:
                         result[key] = __resolve_obj(value, stack)
                 return result

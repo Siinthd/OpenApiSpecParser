@@ -203,10 +203,6 @@ class REST2JSON:
             
         Returns:
             str: Текст спецификации, либо None если загрузка не удалась
-            
-        Notes:
-            - При HTTP/HTTPS выполняет GET запрос с учетом настроек retries и timeout
-            - При FILE:// проверяет наличие опасных символов и читает локальный файл
         """
         import requests, yaml, re
         response = None
@@ -317,7 +313,6 @@ class REST2JSON:
             auth = config.get('auth', {})
             src = proc.get('src', {})
             proc_conn_params = src.get('conn_params', {})
-            conn_type = src.get('conn_type', {})
             auth_header, auth_body = auth.get('src', {}).get('header', {}), {}
             if not auth_header:
                 auth_body = auth.get('src', {}).get('body', {})
@@ -335,8 +330,8 @@ class REST2JSON:
             if proc_conn_params:
                 endpoint_override = proc_conn_params.get('endpoint_override', None)
                 method_override = proc_conn_params.get('method_override', None)
-                timeout = proc_conn_params.get('timeout', None)
-                retries = proc_conn_params.get('retries', None)
+                timeout = proc_conn_params.get('timeout', None) if proc_conn_params.get('timeout') is not None else 3 # WinError 10035 при timeout = 0
+                retries = proc_conn_params.get('retries', None) if proc_conn_params.get('retries') is not None else 1
                 pagination = proc_conn_params.get('pagination', {}).get('enabled', None)
                 page_param = proc_conn_params.get('pagination', {}).get('page_param', None)
                 spec_url = proc_conn_params.get('spec_url', None)
@@ -407,19 +402,18 @@ class REST2JSON:
         payload = copy.deepcopy(data)  # На этот момент payload должен быть списком словарей
         datatype = type(payload).__name__
         if datatype not in ('list', 'dict', 'NoneType'):
-            raise ValueError('Неккоректный формат запрашиваемых данных в разделе payload:  должен иметь тип `dict|list|NoneType`')
+            raise ValueError('payload: некорректный формат: ожидается dict/list/NoneType')
         if isinstance(payload, list):
             if not (len(set(map(type, payload))) <= 1 and type(payload[0]) == dict):
-                raise ValueError('Неккоректный формат запрашиваемых данных в разделе payload: должен иметь объект список объектов класса `dict`')
-        if isinstance(payload, dict):
+                raise ValueError('payload: некорректный формат: ожидается list[dict]')
+        elif isinstance(payload, dict):
             payload = [payload]
+        else:
+            payload = [{}]
         
         # Добавляем аутентификацию (приоритет - header)
         if not self.auth_header and self.auth_body:
-            if payload:
-                payload = [{**value, **self.auth_body} for value in payload]
-            else:  # В payload нет ничего - в сообщении будет только авторизация
-                payload = self.auth_body
+            payload = [{**value, **self.auth_body} for value in payload]
         return payload
     
     def __direct(self, payload):
@@ -482,6 +476,8 @@ class REST2JSON:
         Returns:
             list: Результаты запросов к API
         """
+
+
         datatype = type(data).__name__  # Явная проверка на наличие аргумента в вызове метода
         if datatype == 'NoneType':
             data = self.payload
@@ -507,14 +503,14 @@ class REST2JSON:
             list: Список результатов запросов (содержимое или структура {content, headers})
         """
         results = []
-        if not data:
-            try:
-                for attempt in range(self.retries):
-                    try:
-                        content, headers = self.__client_adapter.execute()  # Вызов без данных
+        for item in data:
+            for attempt in range(self.retries):
+                try:
+                    content, header = self.__client_adapter.execute(item)
+                    if True:  # TODO: вынести в контроль загрузки
                         if self.keep_headers:
                             answer = {'content': content}
-                            header = {}
+                            headers = {}
                             custom_header_variables = self.entity_config.get('custom_header_variables', [])
                             if custom_header_variables and not self.override_header_list:
                                 header_variables = custom_header_variables
@@ -526,55 +522,20 @@ class REST2JSON:
                                 else:
                                     header_variables = []
                             for i in header_variables:
-                                header_data = headers.get(i, {})
-                                header.update(header_data)
-                            answer['headers'] = header
+                                header_data = header.get(i, {})
+                                if header_data:
+                                    headers.update({i: header_data})
+                            answer['headers'] = headers
                             results.append(answer)
                         else:
                             results.append(content)
-                        return results
-                    except Exception as e:
-                        print(f"Попытка {attempt + 1}/{self.retries} неудачна: {e}")
-                        if attempt == self.retries - 1:
-                            print(f"Все {self.retries} попытки запроса провалились")
-                            return []
-                return []
-            except Exception as e:
-                print(f"Ошибка обработки: {e}")
-                return []
-        else:
-            for item in data:
-                for attempt in range(self.retries):
-                    try:
-                        content, header = self.__client_adapter.execute(item)
-                        if True:  # TODO: вынести в контроль загрузки
-                            if self.keep_headers:
-                                answer = {'content': content}
-                                headers = {}
-                                custom_header_variables = self.entity_config.get('custom_header_variables', [])
-                                if custom_header_variables and not self.override_header_list:
-                                    header_variables = custom_header_variables
-                                elif self.override_header_list:
-                                    header_variables = self.override_header_list
-                                else:
-                                    if isinstance(self.headers_fallback, dict):
-                                        header_variables = self.headers_fallback.keys()
-                                    else:
-                                        header_variables = []
-                                for i in header_variables:
-                                    header_data = header.get(i, {})
-                                    if header_data:
-                                        headers.update({i: header_data})
-                                answer['headers'] = headers
-                                results.append(answer)
-                            else:
-                                results.append(content)
-                        break
-                    except Exception as e:
-                        print(f"Попытка {attempt + 1}/{self.retries} неудачна: {e}")
-                        if attempt == self.retries - 1:
-                            print(f"Все {self.retries} попытки запроса {item} провалились")
-                            return results
+                    break
+                except RuntimeError as e: #TODO протестить что падает один раз
+                    raise RuntimeError(e)
+                except Exception as e:
+                    print(f"Попытка {attempt + 1}/{self.retries} неудачна: {e}")
+                    if attempt == self.retries - 1:
+                        raise KeyError(f'SRC: все {self.retries} попытки запроса провалились')
             return results
     
     def close(self):
@@ -667,7 +628,7 @@ class REST2JSON:
             KeyError: Если schema имеет некорректный формат
         """
         if not isinstance(schema, dict) or 'fields' not in schema:
-            raise KeyError('Модуль REST2JSON: Некорректное значение параметра schema_override. Ожидается схема spark.df в json-формате')
+            raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
         
         has_content, has_header = False, False
         for field in schema['fields']:
@@ -737,7 +698,7 @@ class REST2JSON:
             KeyError: При конфликте имен полей или некорректном формате схемы
         """
         if not isinstance(schema, dict) or 'fields' not in schema:
-            raise KeyError('Модуль REST2JSON: Некорректное значение параметра schema_override. Ожидается схема spark.df в json-формате')
+            raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
         
         new_fields = []
         content_fields = []
@@ -770,7 +731,7 @@ class REST2JSON:
         existing_names = [f['name'] for f in new_fields]
         unique = set(existing_names)
         if len(existing_names) != len(unique):
-            raise KeyError("Конфликт имен полей")
+            raise KeyError("schema_override: после распаковки схема содержит дубликаты корневых полей")
         
         if len(new_fields) == 0:
             return {
@@ -813,9 +774,9 @@ class REST2JSON:
         if not self.headers_fallback:
             headers_fallback = {}
         if not isinstance(raw, bool):
-            raise TypeError('Некорректный формат входного параметра')
+            raise TypeError('raw: некорректный тип входного параметра, ожидается bool')
         if self.__parser_adapter.get_response_map() is None:
-            raise ValueError('Спецификация сервиса не содержит схемы данных.')
+            raise ValueError('spec_url, spec_fallback: спецификация сервиса не содержит схемы ответа')
         
         if raw:  # Без конфигурации, кейсы #7-8
             custom_header_variables = self.entity_config.get('custom_header_variables', [])
@@ -849,7 +810,7 @@ class REST2JSON:
                         schema = json.loads(self.schema_override)
                         return self.__resolve_override_schema(schema)  # Кейс 4
                     except:
-                        raise TypeError('Модуль REST2JSON: Некорректное значение параметра schema_override. Ожидается схема spark.df в json-формате')
+                        raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
                 return self.__parser_adapter.getStructTypeSchema(self.type_mapping)  # Кейс 5
             elif self.keep_headers:
                 if self.schema_override:  # Кейсы 1-3
@@ -857,7 +818,7 @@ class REST2JSON:
                         schema = json.loads(self.schema_override)
                         return self.__check_schema_override(schema)
                     except:
-                        raise TypeError('Модуль REST2JSON: Некорректное значение параметра schema_override. Ожидается схема spark.df в json-формате')
+                        raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
                 else:
                     return self.add_header_to_content(
                         self.__parser_adapter.getStructTypeSchema(self.type_mapping),

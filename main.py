@@ -9,7 +9,7 @@ if __name__ == "__main__":
     
 
     #config_file = 'C:/Users/kdenis/Documents/Work/configs/config_IPInfo_demo.yaml'
-    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata_demo.yaml'
 
     import yaml 
 
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     import json
     
     with open('schema_raw.json','w',encoding='Utf-8') as f:
-        json.dump(rest.get_schema(True),f,indent=1)
+        json.dump(rest.get_schema(raw=False),f,indent=1)
 
     with open('schema.json','w',encoding='Utf-8') as f:
         json.dump(rest.get_schema(),f,indent=2)
