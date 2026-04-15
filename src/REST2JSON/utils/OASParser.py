@@ -55,6 +55,8 @@ class OASParser:
             data = yaml.safe_load(src)
         except:
             raise ValueError("spec_url, spec_fallback: полученная спецификация имеет некорректный формат ")
+        if not isinstance(data,dict):
+            raise ValueError("spec_url, spec_fallback: полученная спецификация имеет некорректный формат ")
         return data
 
     def form_header(self, header_raw: dict):

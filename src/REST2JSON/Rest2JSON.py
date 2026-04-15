@@ -507,7 +507,7 @@ class REST2JSON:
             for attempt in range(self.retries):
                 try:
                     content, header = self.__client_adapter.execute(item)
-                    if True:  # TODO: вынести в контроль загрузки
+                    if True:  
                         if self.keep_headers:
                             answer = {'content': content}
                             headers = {}
@@ -530,7 +530,7 @@ class REST2JSON:
                         else:
                             results.append(content)
                     break
-                except RuntimeError as e: #TODO протестить что падает один раз
+                except RuntimeError as e: 
                     raise RuntimeError(e)
                 except Exception as e:
                     print(f"Попытка {attempt + 1}/{self.retries} неудачна: {e}")

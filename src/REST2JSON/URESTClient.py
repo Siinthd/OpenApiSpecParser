@@ -179,7 +179,6 @@ class URESTClient:
             method = self.config.get('method', 'GET').upper()
             
             # Выполняем соответствующий запрос
-            #TODO перенести в инициализацию клиента
             if method == 'GET':
                 return self.client._get(url, data)
             elif method == 'POST':
