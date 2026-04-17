@@ -529,14 +529,13 @@ class REST2JSON:
                             results.append(answer)
                         else:
                             results.append(content)
-                    break
                 except RuntimeError as e: 
                     raise RuntimeError(e)
                 except Exception as e:
                     print(f"Попытка {attempt + 1}/{self.retries} неудачна: {e}")
                     if attempt == self.retries - 1:
                         raise KeyError(f'SRC: все {self.retries} попытки запроса провалились')
-            return results
+        return results
     
     def close(self):
         """
@@ -699,7 +698,7 @@ class REST2JSON:
         """
         if not isinstance(schema, dict) or 'fields' not in schema:
             raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
-        
+        #TODO создается верхнеуровневая структра типа struct, на будущее проверить, как дела обстоят, если content начинается именно с array/возможны проблемы в будущем
         new_fields = []
         content_fields = []
         
