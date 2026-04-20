@@ -320,7 +320,6 @@ class REST2JSON:
             name = src.get('name', {})
             type_mapping = env.get('json', {}).get('type_mapping', {})
             headers_fallback = env.get('json', {}).get('headers_fallback', {})  # Задел для update
-
             type_mapping.update(src_data.get('type_mapping_override', {}))
             payload = src_data.get('payload', None)
             schema_override = src_data.get('schema_override', None)
@@ -404,8 +403,11 @@ class REST2JSON:
         if datatype not in ('list', 'dict', 'NoneType'):
             raise ValueError('payload: некорректный формат: ожидается dict/list/NoneType')
         if isinstance(payload, list):
-            if not (len(set(map(type, payload))) <= 1 and type(payload[0]) == dict):
-                raise ValueError('payload: некорректный формат: ожидается list[dict]')
+            if len(payload) > 0:
+                if not (len(set(map(type, payload))) <= 1 and type(payload[0]) == dict):
+                    raise ValueError('payload: некорректный формат: ожидается list[dict]')
+            else:
+                payload = [{}]
         elif isinstance(payload, dict):
             payload = [payload]
         else:
@@ -507,28 +509,28 @@ class REST2JSON:
             for attempt in range(self.retries):
                 try:
                     content, header = self.__client_adapter.execute(item)
-                    if True:  
-                        if self.keep_headers:
-                            answer = {'content': content}
-                            headers = {}
-                            custom_header_variables = self.entity_config.get('custom_header_variables', [])
-                            if custom_header_variables and not self.override_header_list:
-                                header_variables = custom_header_variables
-                            elif self.override_header_list:
-                                header_variables = self.override_header_list
-                            else:
-                                if isinstance(self.headers_fallback, dict):
-                                    header_variables = self.headers_fallback.keys()
-                                else:
-                                    header_variables = []
-                            for i in header_variables:
-                                header_data = header.get(i, {})
-                                if header_data:
-                                    headers.update({i: header_data})
-                            answer['headers'] = headers
-                            results.append(answer)
+                    if self.keep_headers:
+                        answer = {'content': content}
+                        headers = {}
+                        custom_header_variables = self.entity_config.get('custom_header_variables', [])
+                        if custom_header_variables and not self.override_header_list:
+                            header_variables = custom_header_variables
+                        elif self.override_header_list:
+                            header_variables = self.override_header_list
                         else:
-                            results.append(content)
+                            if isinstance(self.headers_fallback, dict):
+                                header_variables = self.headers_fallback.keys()
+                            else:
+                                header_variables = []
+                        for i in header_variables:
+                            header_data = header.get(i, {})
+                            if header_data:
+                                headers.update({i: header_data})
+                        answer['headers'] = headers
+                        results.append(answer)
+                    else:
+                        results.append(content)
+                    break #следующий элемент
                 except RuntimeError as e: 
                     raise RuntimeError(e)
                 except Exception as e:

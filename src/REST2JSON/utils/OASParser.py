@@ -611,13 +611,13 @@ class OASParser:
         """
         return self.request
 
-    def __extract_schemas(self, openapi_spec: dict, max_depth: int = 10):
+    def __extract_schemas(self, openapi_spec: dict):
         """
         Извлекает и резолвит все компоненты из секции components OpenAPI спецификации.
+        Обрабатывает вложенные ссылки и предотвращает бесконечную рекурсию.
         
         Args:
             openapi_spec: полная спецификация OpenAPI
-            max_depth: максимальная глубина рекурсии для разрешения ссылок
             
         Returns:
             dict: словарь всех компонентов с их путями в качестве ключей и разрешенными ссылками
@@ -628,89 +628,69 @@ class OASParser:
         raw_components = {}
         if 'components' in openapi_spec and isinstance(openapi_spec['components'], dict):
             components = openapi_spec['components']
-            
+
             for component_type, component_dict in components.items():
                 if isinstance(component_dict, dict):
                     for component_name, component_content in component_dict.items():
                         ref_key = f"#/components/{component_type}/{component_name}"
                         raw_components[ref_key] = copy.deepcopy(component_content)
-        
+
         resolved_components = {}
-        cache = {}  # Кеш для уже обработанных объектов
-        
-        def __resolve_obj(obj, depth=0):
+
+        def __resolve_obj(obj, stack=None):
             """
-            Разрешает ссылки в объекте с контролем глубины рекурсии и кешированием.
+            Разрешает ссылки в объекте с контролем стека для предотвращения рекурсии.
             
             Args:
                 obj: объект для обработки
-                depth: текущая глубина рекурсии
+                stack: стек обрабатываемых ссылок (для обнаружения циклов)
                 
             Returns:
                 обработанный объект с разрешенными ссылками
             """
-            # Проверка глубины
-            if depth > max_depth:
-                return {
-                    "type": "object",
-                }
-            
-            # Проверка кеша по id объекта (для избежания повторной обработки)
-            obj_id = id(obj)
-            if obj_id in cache:
-                return cache[obj_id]
-            
+            if stack is None:
+                stack = []
+
             if isinstance(obj, dict):
                 # Если это словарь с одной ссылкой
                 if "$ref" in obj and len(obj) == 1:
                     ref = obj["$ref"]
                     if ref in raw_components:
-                        # Проверяем глубину перед обработкой ссылки
-                        if depth >= max_depth:
-                            result = {
-                                "type": "object",
-                            }
-                            cache[obj_id] = result
-                            return result
-                        
+                        if ref in stack:
+                            return {"type": "string"}  # обнаружена рекурсия - заменяем на object
+                        stack.append(ref)
                         resolved = raw_components[ref]
-                        result = __resolve_obj(resolved, depth + 1)
-                        cache[obj_id] = result
+                        result = __resolve_obj(resolved, stack)
+                        stack.pop()
                         return result
                     elif not self.schema_infer_fallback:
                         raise KeyError(f"spec_url, spec_fallback: не удалось сформировать схему данных на основе спецификации: не описан '{ref}' ")
-                
+
                 result = {}
                 for key, value in obj.items():
                     if key == "$ref" and isinstance(value, str):
                         # Обрабатываем ссылку внутри словаря
                         if value in raw_components:
-                            # Проверяем глубину
-                            if depth >= max_depth:
-                                result[key] = {
-                                    "type": "object"}
-                                
+                            if value in stack:
+                                result[key] = {"type": "object"}  # обнаружена рекурсия - заменяем на object
                             else:
+                                stack.append(value)
                                 resolved = raw_components[value]
-                                result[key] = __resolve_obj(resolved, depth + 1)
+                                result[key] = __resolve_obj(resolved, stack)
+                                stack.pop()
                         elif not self.schema_infer_fallback:
                             raise KeyError(f"spec_url, spec_fallback: не удалось сформировать схему данных на основе спецификации: не описан '{ref}' ")
                     else:
-                        result[key] = __resolve_obj(value, depth)
-                cache[obj_id] = result
+                        result[key] = __resolve_obj(value, stack)
                 return result
-            
+
             elif isinstance(obj, list):
-                result = [__resolve_obj(item, depth) for item in obj]
-                cache[obj_id] = result
-                return result
-            
-            cache[obj_id] = obj
+                return [__resolve_obj(item, stack) for item in obj]
             return obj
-        
+
         for ref_key in raw_components.keys():
             resolved_components[ref_key] = __resolve_obj(raw_components[ref_key])
-        
+
         return resolved_components
     
     def __convert_schema_to_sprkfrm(self, response_map, type_mapping):
