@@ -8,8 +8,8 @@ from src.REST2JSON.utils.OASParser import OASParser
 if __name__ == "__main__":
     
 
-    #config_file = 'C:/Users/kdenis/Documents/Work/configs/config_IPInfo_demo.yaml'
-    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata_demo.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_IPInfo_demo.yaml'
+    #config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata_demo.yaml'
 
     import yaml 
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     with open('schema.json','w',encoding='Utf-8') as f:
         json.dump(rest.get_schema(),f,indent=2)
 
-    with open('answer.json','w',encoding='cp1251') as f:
+    with open('answer111.json','w',encoding='cp1251') as f:
       json.dump(rest.get_data(),f,indent=1)
 
     

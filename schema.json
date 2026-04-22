@@ -1,0 +1,69 @@
+{
+  "type": "struct",
+  "fields": [
+    {
+      "name": "as_domain",
+      "nullable": true,
+      "type": "string",
+      "metadata": {
+        "example": "google.com"
+      }
+    },
+    {
+      "name": "as_name",
+      "nullable": true,
+      "type": "string",
+      "metadata": {
+        "example": "Google LLC"
+      }
+    },
+    {
+      "name": "asn",
+      "nullable": true,
+      "type": "string",
+      "metadata": {
+        "example": "AS15169"
+      }
+    },
+    {
+      "name": "continent",
+      "nullable": true,
+      "type": "string",
+      "metadata": {
+        "example": "North America"
+      }
+    },
+    {
+      "name": "continent_code",
+      "nullable": true,
+      "type": "string",
+      "metadata": {
+        "example": "NA"
+      }
+    },
+    {
+      "name": "country",
+      "nullable": true,
+      "type": "string",
+      "metadata": {
+        "example": "United States"
+      }
+    },
+    {
+      "name": "country_code",
+      "nullable": true,
+      "type": "string",
+      "metadata": {
+        "example": "US"
+      }
+    },
+    {
+      "name": "ip",
+      "nullable": true,
+      "type": "string",
+      "metadata": {
+        "example": "8.8.8.8"
+      }
+    }
+  ]
+}
