@@ -318,21 +318,22 @@ class REST2JSON:
                 auth_body = auth.get('src', {}).get('body', {})
             src_data = proc.get('src', {}).get('data', {})
             name = src.get('name', {})
-            type_mapping = env.get('json', {}).get('type_mapping', {})
-            headers_fallback = env.get('json', {}).get('headers_fallback', {})  # Задел для update
+            env_json=env.get('json', {}) if env.get('json') is not None else {}
+            type_mapping = env_json.get('type_mapping', {})  if env.get('type_mapping') is not None else {}
+            headers_fallback = env_json.get('headers_fallback', {})  if env.get('headers_fallback') is not None else {} # Задел для update
             type_mapping.update(src_data.get('type_mapping_override', {}))
             payload = src_data.get('payload', None)
             schema_override = src_data.get('schema_override', None)
             keep_headers = src_data.get('schema_keep_headers', None)
             schema_infer_fallback = src_data.get('schema_infer_fallback', None)
-            
+
             if proc_conn_params:
                 endpoint_override = proc_conn_params.get('endpoint_override', None)
                 method_override = proc_conn_params.get('method_override', None)
                 timeout = proc_conn_params.get('timeout', None) if proc_conn_params.get('timeout') is not None else 3 # WinError 10035 при timeout = 0
                 retries = proc_conn_params.get('retries', None) if proc_conn_params.get('retries') is not None else 1
-                pagination = proc_conn_params.get('pagination', {}).get('enabled', None)
-                page_param = proc_conn_params.get('pagination', {}).get('page_param', None)
+                pagination = proc_conn_params.get('pagination', {}).get('enabled', None) if proc_conn_params.get('pagination') is not None else None
+                page_param = proc_conn_params.get('pagination', {}).get('page_param', None) if proc_conn_params.get('pagination') is not None else None
                 spec_url = proc_conn_params.get('spec_url', None)
                 spec_fallback = proc_conn_params.get('spec_fallback', None)
                 base_override = proc_conn_params.get('base_override', None)
