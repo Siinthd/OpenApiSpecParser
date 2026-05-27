@@ -6,15 +6,14 @@ def readme():
 
 setup(
     name='REST2JSON',
-    version='0.2.1',
+    version='0.3.0',
     author='Denis Kodolich',
     author_email='d.kodolich@concept-software.ru',
     description='metadriven-адаптер для RESTAPI запросов',
     long_description=readme(),
     long_description_content_type='text/markdown',
-    url='https://github.com/Siinthd/REST2JSON',  # Добавьте ваш репозиторий
-    
-    # Классификаторы для PyPI
+    url='https://github.com/Siinthd/REST2JSON', 
+
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
@@ -28,11 +27,11 @@ setup(
         'Operating System :: OS Independent',
     ],
     
-    # ВАЖНО: ищем пакеты в папке src
+
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     
-    # Явно указываем, что включать
+
     package_data={
         'REST2JSON': ['*.py', 'utils/*.py'], 
     },
@@ -61,19 +60,19 @@ setup(
     
     python_requires='>=3.8',
     
-    # Точки входа если нужно (для CLI)
+
     entry_points={
         'console_scripts': [
-            # 'rest2json = REST2JSON.cli:main',  # если будет CLI
+            # 'rest2json = REST2JSON.cli:main',
         ],
     },
     
-    # Проектные URLs
+
     project_urls={
         'Bug Reports': 'https://github.com/yourusername/REST2JSON/issues',
         'Source': 'https://github.com/yourusername/REST2JSON',
         'Documentation': 'https://REST2JSON.readthedocs.io',
     },
     
-    zip_safe=False,  # Рекомендуется для пакетов с непитоновскими файлами
+    zip_safe=False,  
 )

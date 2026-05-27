@@ -1,7 +1,7 @@
 from pprint import pprint
 import json
 from src.REST2JSON.Rest2JSON import REST2JSON
-from src.REST2JSON.utils.OASParser import OASParser
+from src.REST2JSON.utils import HTTPTransport
 
 
 
@@ -9,7 +9,8 @@ if __name__ == "__main__":
     
 
     config_file = 'C:/Users/kdenis/Documents/Work/configs/config_IPInfo_demo.yaml'
-    #config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata_demo.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_dadata_demo.yaml'
+    config_file = 'C:/Users/kdenis/Documents/Work/configs/config_WorldBank.yaml'
 
     import yaml 
 
@@ -20,31 +21,9 @@ if __name__ == "__main__":
             print(exc)
 
 
-
     
+    transport = HTTPTransport()
+    rest = REST2JSON(transport = transport,config = config)
+    rest.prepare()
+    rest.run([{'display_title': 'Moscow','format': 'json'}])
 
-    rest = REST2JSON(config)
-    
-
-    
-    import json
-    
-    with open('schema_raw.json','w',encoding='Utf-8') as f:
-        json.dump(rest.get_schema(raw=False),f,indent=1)
-
-    with open('schema.json','w',encoding='Utf-8') as f:
-        json.dump(rest.get_schema(),f,indent=2)
-
-    with open('answer111.json','w',encoding='cp1251') as f:
-      json.dump(rest.get_data(),f,indent=1)
-
-    
-    # import yaml
-    # with open('C:/Users/kdenis/Documents/Work/OpenApiSpecParser/examples/inmobile.yaml', 'r', encoding='utf-8') as f:
-    #     content = f.read()
-    #     loaded_spec = yaml.safe_load(content)
-
-    #     sch_pars = OASParser(OpName='Lists_GetAllLists',loaded_spec=loaded_spec)
-
-    #     with open('schema_inmobile.json','w',encoding='Utf-8') as f:
-    #         json.dump(sch_pars.response_sparkdf,f,indent=1)

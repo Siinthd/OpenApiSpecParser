@@ -1,7 +1,13 @@
 import os
+import mimetypes
+import copy 
+import fsspec
+import hashlib
+import json
 from urllib.parse import urlparse
 from .utils.OASParser import OASParser
-from .URESTClient import URESTClient
+from .utils.BaseAdapter import BaseAdapter
+from .utils.transport import TransportInterface
 
 
 class ParserAdapter(OASParser):
@@ -47,33 +53,14 @@ class ParserAdapter(OASParser):
         return self._parser
 
 
-class ClientAdapter(URESTClient):
-    """
-    Адаптер для HTTP клиента.
-    Наследует URESTClient и передает параметры для инициализации клиента.
-    """
-    
-    def __init__(self, entity, extra_headers, base_url, timeout):
-        """
-        Инициализация адаптера клиента.
-        
-        Args:
-            entity: Конфигурация сущности (эндпоинта) от парсера
-            extra_headers: Дополнительные заголовки для запросов
-            base_url: Базовый URL сервера
-            timeout: Таймаут для HTTP запросов в секундах
-        """
-        super().__init__(entity, extra_headers, base_url, timeout)
-
-
-class REST2JSON:
+class REST2JSON(BaseAdapter):
     """
     Основной класс для преобразования REST API ответов в JSON формат.
     Объединяет функциональность парсера OpenAPI спецификации и HTTP клиента.
     Поддерживает контекстный менеджер для автоматического управления соединениями.
     """
     
-    def __init__(self, config: dict = None):
+    def __init__(self,transport:TransportInterface, config: dict = None):
         """
         Инициализация REST2JSON конвертера.
         
@@ -83,6 +70,11 @@ class REST2JSON:
                 - env: параметры окружения (json, type_mapping)
                 - auth: параметры аутентификации (header, body)
         """
+        # Инициализация транспорта
+        if transport is None:
+            raise ValueError("transport cannot be None")
+        self.__transport = transport
+
         # Загружаем конфигурацию
         (self.payload,
          self.base_override,
@@ -102,66 +94,26 @@ class REST2JSON:
          self.keep_headers,
          self.headers_fallback,
          self.schema_infer_fallback) = self.__load_configuration(config)
-        
         # Получаем спецификацию
-        self.spec = self._load_specification_(self.OpenAPISpecYAML, self.OpenAPISpecYAMLURL)
-        
+        self.spec = None
         # Загрузка адаптера парсера
-        self.__parser_adapter = ParserAdapter(
-            self.OpName, 
-            self.endpoint_override, 
-            self.method_override, 
-            self.schema_infer_fallback, 
-            self.spec
-        ).get_parser()
+        self.__parser_adapter = None
+        self.entity_config = None
+        self.override_header_list = None
+        self.base_url = None
+        self.ready = False
 
-        self.entity_config = self.__parser_adapter.request
-        self.override_header_list = self.get_header_keys_from_override()
+        #TODO: Context:any = None, мы либо определяем внешний определенный контекст,либо принимаем кго как аргумент
         
-        self.base_url = self.__getbase_url(self.entity_config)
-        
-        # Инициализация клиента
-        self.__client_adapter = ClientAdapter(
-            self.entity_config, 
-            self.auth_header, 
-            self.base_url, 
-            self.timeout
-        )
-        self.__in_context = False  # Флаг состояния контекстного менеджера
+    def get_file(self, url):
+        """
+        используем транспорт чтобы получить файл
+        """
 
-    def __enter__(self):
-        """
-        Вход в контекстный менеджер.
-        Инициализирует HTTP клиент и устанавливает соединение.
-        
-        Returns:
-            REST2JSON: Экземпляр текущего объекта для использования в контексте
-            
-        Raises:
-            RuntimeError: Если контекстный менеджер уже активен
-        """
-        if self.__in_context:
-            raise RuntimeError("Объект клиента уже создан и используется.")
-        self.__client_adapter.__enter__()
-        self.__in_context = True
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Выход из контекстного менеджера.
-        Закрывает HTTP клиент и освобождает ресурсы.
-        
-        Args:
-            exc_type: Тип исключения (если было)
-            exc_val: Значение исключения
-            exc_tb: Трассировка исключения
-            
-        Returns:
-            bool: False для проброса исключений дальше
-        """
-        self.__in_context = False
-        self.__client_adapter.__exit__(exc_type, exc_val, exc_tb)
-        return False
+        content = None
+        with fsspec.open(url) as f:
+            content = f.read()
+        return content
 
     def _load_specification_(self, src, url):
         """
@@ -206,7 +158,6 @@ class REST2JSON:
         """
         import requests, yaml, re
         response = None
-        attempts = 0
         try:
             if re.match(r'^\w+:(\/{2,3})\w', url):  # 2 или 3 /// после :
                 parsed = urlparse(url)
@@ -214,10 +165,7 @@ class REST2JSON:
                     for attempt in range(self.retries):
                         try:
                             print(f'Попытка чтения файла по ссылке {url}', end="")
-                            response = requests.get(url, timeout=self.timeout)
-                            response.raise_for_status()
-                            response.encoding = response.apparent_encoding or 'utf-8'
-                            response = response.text
+                            response = self.get_file(url)
                             break
                         except:
                             print(f" неудачна")
@@ -312,10 +260,10 @@ class REST2JSON:
             env = config.get('env', {})
             auth = config.get('auth', {})
             src = proc.get('src', {})
-            proc_conn_params = src.get('conn_params', {})
-            auth_header, auth_body = auth.get('src', {}).get('header', {}), {}
+            proc_conn_params = src.get('conn_params', {}) 
+            auth_header, auth_body = auth.get('src', {}).get('header', {}) if auth.get('src', {}).get('header', {}) is not None else {}, {}
             if not auth_header:
-                auth_body = auth.get('src', {}).get('body', {})
+                auth_body = auth.get('src', {}).get('body', {}) if auth.get('src', {}).get('body', {}) else {} 
             src_data = proc.get('src', {}).get('data', {})
             name = src.get('name', {})
             env_json=env.get('json', {}) if env.get('json') is not None else {}
@@ -324,7 +272,7 @@ class REST2JSON:
             type_mapping.update(src_data.get('type_mapping_override', {}))
             payload = src_data.get('payload', None)
             schema_override = src_data.get('schema_override', None)
-            keep_headers = src_data.get('schema_keep_headers', None)
+            keep_headers = src_data.get('schema_keep_header', None)
             schema_infer_fallback = src_data.get('schema_infer_fallback', None)
 
             if proc_conn_params:
@@ -383,172 +331,7 @@ class REST2JSON:
         except:
             TypeError('Не удалось преобразовать schema_override в формат JSON')
         return result
-
-    def _prepare_payload(self, data):
-        """
-        Подготовка payload для отправки в запросе.
-        Преобразует данные в единый формат (список словарей) и добавляет данные аутентификации.
-        
-        Args:
-            data: Исходные данные (dict, list или None)
-            
-        Returns:
-            list: Подготовленный список словарей для отправки
-            
-        Raises:
-            ValueError: Если payload имеет недопустимый тип или структуру
-        """
-        import copy
-        payload = copy.deepcopy(data)  # На этот момент payload должен быть списком словарей
-        datatype = type(payload).__name__
-        if datatype not in ('list', 'dict', 'NoneType'):
-            raise ValueError('payload: некорректный формат: ожидается dict/list/NoneType')
-        if isinstance(payload, list):
-            if len(payload) > 0:
-                if not (len(set(map(type, payload))) <= 1 and type(payload[0]) == dict):
-                    raise ValueError('payload: некорректный формат: ожидается list[dict]')
-            else:
-                payload = [{}]
-        elif isinstance(payload, dict):
-            payload = [payload]
-        else:
-            payload = [{}]
-        
-        # Добавляем аутентификацию (приоритет - header)
-        if not self.auth_header and self.auth_body:
-            payload = [{**value, **self.auth_body} for value in payload]
-        return payload
-    
-    def __direct(self, payload):
-        """
-        Выполнение прямого запроса к API с использованием методов _get/_post.
-        
-        Args:
-            payload: Данные для отправки (один словарь или список словарей)
-            
-        Returns:
-            list: Список ответов от API
-        """
-        got_list = False
-        result = []
-        if isinstance(payload, list):
-            data_list = self._prepare_payload(payload)
-            got_list = True
-        else:
-            data_list = self._prepare_payload(payload)
-        try:
-            http_client = self.__client_adapter.client
-            for data in data_list:
-                # Определяем метод из конфига
-                method = self.__client_adapter.config.get('method', 'GET').upper()
-                
-                # Формируем URL с подстановкой параметров из пути
-                url_template = f"{self.base_url}{self.__client_adapter.config.get('url', '')}"
-                if data:
-                    try:
-                        url = url_template.format(**data)
-                    except KeyError:
-                        url = url_template
-                else:
-                    url = url_template
-                
-                # Выполняем прямой запрос
-                if method == 'GET':
-                    response = http_client._get(url, data)
-                else:  # POST
-                    response = http_client._post(url, data)
-                
-                # Валидируем ответ
-                if not got_list:
-                    if isinstance(response, dict):
-                        return [response]
-                    else:
-                        return response
-                result.append(response)
-            return result
-        except Exception as e:
-            return None
-
-    def get_data(self, data=None):
-        """
-        Основной метод для получения данных из API.
-        
-        Args:
-            data: Данные для отправки (опционально, если не указан - используется payload из конфигурации)
-            
-        Returns:
-            list: Результаты запросов к API
-        """
-
-
-        datatype = type(data).__name__  # Явная проверка на наличие аргумента в вызове метода
-        if datatype == 'NoneType':
-            data = self.payload
-        if self.__in_context:
-            return self.__direct(data)
-        else:
-            payload = self._prepare_payload(data)
-            self.__enter__()
-            try:
-                results = self._execute(payload)
-            finally:
-                self.__exit__(None, None, None)
-        return results
-        
-    def _execute(self, data):
-        """
-        Выполнение запросов к API с обработкой заголовков и retry логикой.
-        
-        Args:
-            data: Список словарей с данными для отправки
-            
-        Returns:
-            list: Список результатов запросов (содержимое или структура {content, headers})
-        """
-        results = []
-        for item in data:
-            for attempt in range(self.retries):
-                try:
-                    content, header = self.__client_adapter.execute(item)
-                    if self.keep_headers:
-                        answer = {'content': content}
-                        headers = {}
-                        custom_header_variables = self.entity_config.get('custom_header_variables', [])
-                        if custom_header_variables and not self.override_header_list:
-                            header_variables = custom_header_variables
-                        elif self.override_header_list:
-                            header_variables = self.override_header_list
-                        else:
-                            if isinstance(self.headers_fallback, dict):
-                                header_variables = self.headers_fallback.keys()
-                            else:
-                                header_variables = []
-                        for i in header_variables:
-                            header_data = header.get(i, {})
-                            if header_data:
-                                headers.update({i: header_data})
-                        answer['headers'] = headers
-                        results.append(answer)
-                    else:
-                        results.append(content)
-                    break #следующий элемент
-                except RuntimeError as e: 
-                    raise RuntimeError(e)
-                except Exception as e:
-                    print(f"Попытка {attempt + 1}/{self.retries} неудачна: {e}")
-                    if attempt == self.retries - 1:
-                        raise KeyError(f'SRC: все {self.retries} попытки запроса провалились')
-        return results
-    
-    def close(self):
-        """
-        Закрытие соединения и освобождение ресурсов.
-        Принудительно закрывает HTTP клиент и сбрасывает флаг контекста.
-        """
-        if self.__in_context:
-            self.__in_context = False
-            self.__client_adapter.close()
-            
+       
     def add_header_to_content(self, content, header):
         """
         Создание структуры данных, объединяющей заголовки и содержимое.
@@ -826,3 +609,162 @@ class REST2JSON:
                         self.__parser_adapter.getStructTypeSchema(self.type_mapping),
                         self.__parser_adapter.getStructTypeHeader(self.type_mapping)
                     )  # Кейс 6
+
+    def prepare(self):
+        """Подготовка адаптера к работе,
+        пилот - просто запускаем парсер
+        в планах сделать зависимость от полноты конфига
+        Кроме того поместить получение спеки
+        """
+        #TODO: спеку получаем только тогда,когда соблюдены все условия
+        # Получаем спецификацию
+        self.spec = self._load_specification_(self.OpenAPISpecYAML, self.OpenAPISpecYAMLURL)
+        #TODO: спеку парсим только тогда,когда соблюдены все условия
+        # Загрузка адаптера парсера
+        self.__parser_adapter = ParserAdapter(
+            self.OpName, 
+            self.endpoint_override, 
+            self.method_override, 
+            self.schema_infer_fallback, 
+            self.spec
+        )
+        #TODO: Нужна вилка для источник-спека/источник-файл конфигурации
+        self.__parser_adapter = self.__parser_adapter.get_parser()
+        self.entity_config = self.__parser_adapter.request
+        #TODO: все овверайд методы резолвить здесь же
+
+        self.override_header_list = self.get_header_keys_from_override()
+        self.base_url = self.__getbase_url(self.entity_config)
+        #защита от запуска run без prepare()
+        self.ready = True
+
+    def run(self, ext_payload=None):
+        if not self.ready:
+            raise RuntimeError('Вы пытаетесь начать загрузку данных без подготовки адаптера.')
+        #1 получаем данные,приземляем файлы
+        self.get_data(ext_payload)
+        #2 получаем StructType- схему из специ/конфигурации
+        self.get_schema()
+        #3 начинаем формирование датафрейма
+        return 'df'
+    
+    def get_data(self, ext_payload=None):
+        """
+        Основной метод для получения данных из API.
+        
+        Args:
+            ext_payload: Данные для отправки (опционально, если не указан - используется payload из конфигурации)
+            
+        Returns:
+           
+        """
+        #Когда попытались что-нибудь передать - обрабатываем именно то что передали (ext_payload)
+        datatype = type(ext_payload).__name__  
+        if datatype == 'NoneType':
+            payload = self.payload
+        else:
+            payload = ext_payload
+        
+        # Строим обширный справочников для подключения и передачи данных в REST
+        payload = self._prepare_payload(payload)
+
+        #Запуск процесса приземления файлов в fs.
+        self._execute(payload)
+        
+    def _prepare_payload(self, srcpayload):
+        """
+        Подготовка payload для отправки в запросе.
+        Преобразует данные в единый формат (список словарей) и добавляет данные аутентификации.
+        
+        Args:
+            data: Исходные данные (dict, list или None)
+            
+        Returns:
+            list: Подготовленный список словарей для отправки
+            
+        Raises:
+            ValueError: Если payload имеет недопустимый тип или структуру
+        """
+        method = self.entity_config.get('method', 'GET').upper()
+        url_template = f"{self.base_url}{self.entity_config.get('url', '')}"
+        raw = copy.deepcopy(srcpayload) if srcpayload is not None else self.payload
+        if raw is None:
+            raw = [{}]
+        # Приведение к списку словарей
+        if isinstance(raw, dict):
+            items = [raw]
+        elif isinstance(raw, list):
+            if len(raw) == 0:
+                items = [{}]
+            elif not all(isinstance(i, dict) for i in raw):
+                raise ValueError('payload: ожидается list[dict]')
+            else:
+                items = raw
+        else:
+            raise ValueError('payload: некорректный формат: ожидается dict/list/NoneType')
+        # Аутентификация через тело, если нет заголовков
+        if not self.auth_header and self.auth_body:
+            items = [{**item, **self.auth_body} for item in items]
+        # Базовые заголовки
+        headers = {**self.entity_config.get('headers', {}), **self.auth_header}
+        # Формируем итоговый список запросов
+        payload = []
+        for item in items:
+            try:
+                url = url_template.format(**item)
+            except KeyError:
+                url = url_template
+            request_info = {
+                'method': method,
+                'url': url,
+            }
+            if method in ('GET', 'DELETE'):
+                request_info['params'] = item
+            else:
+                request_info['json'] = item
+            if headers:
+                request_info['headers'] = headers
+            payload.append(request_info)
+        return payload
+
+    def _execute(self, data):
+        """
+        Выполнение запросов к API с обработкой заголовков и retry логикой.
+        
+        Args:
+            data: Список словарей с данными для отправки
+            
+        Returns:
+            Его нет.
+            Бэкграундом пишуться файлы в указанный каталог.
+        """
+        #TODO: если учесть пагинацию,то  все равно придется добавлять и делать доступ к params/json
+        # вся логика по формированию пэйлоада,в формате кварг перенесена в _prepare_payload()
+        results = []
+        with self.__transport as tr:
+            for item in data:
+                for attempt in range(self.retries):
+                    try:
+                        resp = tr.request(**item)
+                        resp.raise_for_status()
+                        content_type = tr.get_header().get('Content-Type') 
+                        ext = mimetypes.guess_extension(content_type.split(';')[0])
+                        idx = hashlib.md5(json.dumps(item, sort_keys=True).encode()).hexdigest()
+                        #TODO: Можно извлекать тип и кодировку прямо отсюда, из Content-Type и Использовать fallback-словарь
+                        #TODO: каталог куда сохраняется файлы - захардкожен
+                        filename = os.path.join(f"{idx}_content{ext}") # рабочее название файла - content_hashсловаря+extension
+                        with fsspec.open(filename,'wb') as f: #TODO Это должен быть Объект Context.writer
+                            for chunk in resp.iter_content(chunk_size=8192):
+                                f.write(chunk)
+                        if self.keep_headers:
+                            #TODO: сохраняем как джсон - захардкожен
+                            filename = os.path.join(f"{idx}_header.json")
+                            with open(filename,'w',encoding='Utf-8') as f:
+                                json.dump(dict(tr.get_header()),f,indent=1) 
+                        break
+                    except Exception as e:
+                        #TODO: сюда добавить удаления файла,пока что 'wb' обеспечивает перезапись файла с тем же именем
+                        print(f"Попытка {attempt + 1}/{self.retries} неудачна по причине: {e}")
+                        if attempt == self.retries - 1:
+                            raise KeyError(f'SRC: все {self.retries} попытки запроса провалились')
+        return True #  заглушка
