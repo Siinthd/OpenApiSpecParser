@@ -10,6 +10,7 @@ from .utils.BaseAdapter import BaseAdapter
 from .utils.transport import TransportInterface
 
 
+
 class ParserAdapter(OASParser):
     """
     Адаптер для парсера OpenAPI спецификации.
@@ -57,10 +58,11 @@ class REST2JSON(BaseAdapter):
     """
     Основной класс для преобразования REST API ответов в JSON формат.
     Объединяет функциональность парсера OpenAPI спецификации и HTTP клиента.
-    Поддерживает контекстный менеджер для автоматического управления соединениями.
+    Тестируемый билд - функциональность изменена
+    
     """
     
-    def __init__(self,transport:TransportInterface, config: dict = None):
+    def __init__(self,transport:TransportInterface, config: dict = None, Context:any = None):
         """
         Инициализация REST2JSON конвертера.
         
@@ -102,9 +104,10 @@ class REST2JSON(BaseAdapter):
         self.override_header_list = None
         self.base_url = None
         self.ready = False
+        self.StypeSchema = None
+        self.stgmain = Context
 
-        #TODO: Context:any = None, мы либо определяем внешний определенный контекст,либо принимаем кго как аргумент
-        
+
     def get_file(self, url):
         """
         используем транспорт чтобы получить файл
@@ -484,7 +487,6 @@ class REST2JSON(BaseAdapter):
         """
         if not isinstance(schema, dict) or 'fields' not in schema:
             raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
-        #TODO создается верхнеуровневая структра типа struct, на будущее проверить, как дела обстоят, если content начинается именно с array/возможны проблемы в будущем
         new_fields = []
         content_fields = []
         
@@ -529,7 +531,7 @@ class REST2JSON(BaseAdapter):
             "fields": new_fields
         }
 
-    def get_schema(self, raw: bool = False):
+    def get_schema(self):
         """
         Получение схемы данных ответа API.
         Поддерживает различные кейсы обработки заголовков и содержимого.
@@ -545,8 +547,6 @@ class REST2JSON(BaseAdapter):
         8. keep_headers=0 + schema_override is null, raw=True
         
         Args:
-            raw: Если True - возвращает сырую схему из спецификации, 
-                 если False - применяет трансформации согласно конфигурации
                  
         Returns:
             dict: Схема данных в формате Spark StructType JSON
@@ -558,57 +558,29 @@ class REST2JSON(BaseAdapter):
         import json
         if not self.headers_fallback:
             headers_fallback = {}
-        if not isinstance(raw, bool):
-            raise TypeError('raw: некорректный тип входного параметра, ожидается bool')
         if self.__parser_adapter.get_response_map() is None:
             raise ValueError('spec_url, spec_fallback: спецификация сервиса не содержит схемы ответа')
         
-        if raw:  # Без конфигурации, кейсы #7-8
-            custom_header_variables = self.entity_config.get('custom_header_variables', [])
-            properties = {}
-            if self.keep_headers:
-                import copy
-                header = copy.deepcopy(self.__parser_adapter.get_headers_map())
-                if header is not None:
-                    for i, j in headers_fallback.items():
-                        if custom_header_variables:
-                            if i not in custom_header_variables:
-                                header['properties'].update({i: {'schema': {'type': j}}})
-                            else:
-                                properties[i] = {'schema': {'type': j}}
-                else:
-                    header = {'type': 'object', 'properties': {}}
-                    for i, j in self.headers_fallback.items():
-                        if custom_header_variables:
-                            if i not in custom_header_variables:
-                                properties[i] = {'schema': {'type': j}}
-                        else:
-                            properties[i] = {'schema': {'type': j}}
-                    header['properties'] = properties
-                return {'content': self.__parser_adapter.get_response_map(), 'headers': header}
+        if not self.keep_headers:
+            if self.schema_override:
+                try:
+                    schema = json.loads(self.schema_override)
+                    return self.__resolve_override_schema(schema)  # Кейс 4
+                except:
+                    raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
+            return self.__parser_adapter.getStructTypeSchema(self.type_mapping)  # Кейс 5
+        elif self.keep_headers:
+            if self.schema_override:  # Кейсы 1-3
+                try:
+                    schema = json.loads(self.schema_override)
+                    return self.__check_schema_override(schema)
+                except:
+                    raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
             else:
-                return self.__parser_adapter.get_response_map()  # Кейс 8
-        else:
-            if not self.keep_headers:
-                if self.schema_override:
-                    try:
-                        schema = json.loads(self.schema_override)
-                        return self.__resolve_override_schema(schema)  # Кейс 4
-                    except:
-                        raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
-                return self.__parser_adapter.getStructTypeSchema(self.type_mapping)  # Кейс 5
-            elif self.keep_headers:
-                if self.schema_override:  # Кейсы 1-3
-                    try:
-                        schema = json.loads(self.schema_override)
-                        return self.__check_schema_override(schema)
-                    except:
-                        raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
-                else:
-                    return self.add_header_to_content(
-                        self.__parser_adapter.getStructTypeSchema(self.type_mapping),
-                        self.__parser_adapter.getStructTypeHeader(self.type_mapping)
-                    )  # Кейс 6
+                return self.add_header_to_content(
+                    self.__parser_adapter.getStructTypeSchema(self.type_mapping),
+                    self.__parser_adapter.getStructTypeHeader(self.type_mapping)
+                )  # Кейс 6
 
     def prepare(self):
         """Подготовка адаптера к работе,
@@ -635,16 +607,23 @@ class REST2JSON(BaseAdapter):
 
         self.override_header_list = self.get_header_keys_from_override()
         self.base_url = self.__getbase_url(self.entity_config)
+
+
+        self.StypeSchema = self.get_schema()
         #защита от запуска run без prepare()
         self.ready = True
 
     def run(self, ext_payload=None):
+        '''
+        Для теста contex эта функция пока не возвращает датафрейм
+        '''
         if not self.ready:
             raise RuntimeError('Вы пытаетесь начать загрузку данных без подготовки адаптера.')
         #1 получаем данные,приземляем файлы
         self.get_data(ext_payload)
         #2 получаем StructType- схему из специ/конфигурации
-        self.get_schema()
+        self.stgmain.set_schema(self.StypeSchema)
+        #self.StypeSchema
         #3 начинаем формирование датафрейма
         return 'df'
     
@@ -664,10 +643,8 @@ class REST2JSON(BaseAdapter):
             payload = self.payload
         else:
             payload = ext_payload
-        
         # Строим обширный справочников для подключения и передачи данных в REST
         payload = self._prepare_payload(payload)
-
         #Запуск процесса приземления файлов в fs.
         self._execute(payload)
         
@@ -727,7 +704,7 @@ class REST2JSON(BaseAdapter):
             payload.append(request_info)
         return payload
 
-    def _execute(self, data):
+    def _execute(self, payload_list):
         """
         Выполнение запросов к API с обработкой заголовков и retry логикой.
         
@@ -740,31 +717,33 @@ class REST2JSON(BaseAdapter):
         """
         #TODO: если учесть пагинацию,то  все равно придется добавлять и делать доступ к params/json
         # вся логика по формированию пэйлоада,в формате кварг перенесена в _prepare_payload()
-        results = []
+        result = []
+
+        filename = ''
         with self.__transport as tr:
-            for item in data:
+            for item in payload_list:
+                idx = hashlib.md5(json.dumps(item, sort_keys=True).encode()).hexdigest()
                 for attempt in range(self.retries):
                     try:
+                        bucket = []
                         resp = tr.request(**item)
                         resp.raise_for_status()
                         content_type = tr.get_header().get('Content-Type') 
                         ext = mimetypes.guess_extension(content_type.split(';')[0])
-                        idx = hashlib.md5(json.dumps(item, sort_keys=True).encode()).hexdigest()
-                        #TODO: Можно извлекать тип и кодировку прямо отсюда, из Content-Type и Использовать fallback-словарь
-                        #TODO: каталог куда сохраняется файлы - захардкожен
-                        filename = os.path.join(f"{idx}_content{ext}") # рабочее название файла - content_hashсловаря+extension
-                        with fsspec.open(filename,'wb') as f: #TODO Это должен быть Объект Context.writer
+                        filename = os.path.join(f"{idx}_content{ext}")
+                        with self.stgmain.open_file(filename) as f:
                             for chunk in resp.iter_content(chunk_size=8192):
                                 f.write(chunk)
                         if self.keep_headers:
-                            #TODO: сохраняем как джсон - захардкожен
-                            filename = os.path.join(f"{idx}_header.json")
-                            with open(filename,'w',encoding='Utf-8') as f:
-                                json.dump(dict(tr.get_header()),f,indent=1) 
+                            filename = os.path.join(f"{idx}_header{ext}")
+                            with self.stgmain.open_file(filename) as f:
+                                f.write(json.dumps(dict(tr.get_header()), indent=1).encode('utf-8'))
+                        else:
+                            result.append((b''.join(bucket)))
                         break
                     except Exception as e:
-                        #TODO: сюда добавить удаления файла,пока что 'wb' обеспечивает перезапись файла с тем же именем
                         print(f"Попытка {attempt + 1}/{self.retries} неудачна по причине: {e}")
                         if attempt == self.retries - 1:
                             raise KeyError(f'SRC: все {self.retries} попытки запроса провалились')
-        return True #  заглушка
+        return True 
+ 

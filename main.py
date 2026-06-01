@@ -2,7 +2,7 @@ from pprint import pprint
 import json
 from src.REST2JSON.Rest2JSON import REST2JSON
 from src.REST2JSON.utils import HTTPTransport
-
+from ..StagingManager.src.STAGINGMANAGER import STAGINGMANAGER
 
 
 if __name__ == "__main__":
@@ -21,9 +21,9 @@ if __name__ == "__main__":
             print(exc)
 
 
-    
+    context = STAGINGMANAGER()
     transport = HTTPTransport()
-    rest = REST2JSON(transport = transport,config = config)
+    rest = REST2JSON(transport = transport,config = config,context = context)
     rest.prepare()
-    rest.run([{'display_title': 'Moscow','format': 'json'}])
+    rest.run()
 

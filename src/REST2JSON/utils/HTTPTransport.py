@@ -23,7 +23,9 @@ class HTTPTransport(TransportInterface):
         kwargs.setdefault('stream', self._stream)
         raw = self._session.request(method, url, **kwargs)
         self._current_response = raw
-        self._header = raw.headers
+        # Прямой доступ к неизмененным заголовкам сокета urllib3
+        #TODO можно вызывать обращаясь напрямую к raw.headers но после получения всех чанков
+        self._header = raw.raw.headers
         return raw
 
     def get_header(self):
