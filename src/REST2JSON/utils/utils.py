@@ -1,4 +1,6 @@
-from typing import Any, List, Dict, Optional,Tuple,Union
+from typing import Any, List, Dict, Optional
+import fsspec
+import io
 
 class OpenAPIToSparkConverter:
     """Конвертер OpenAPI схем в Spark StructType JSON формат без зависимости от PySpark"""
@@ -250,3 +252,62 @@ class OpenAPIToSparkConverter:
             return None
 
 
+class StagingContext:
+    """Вспомогательный класс-контекст для конкретного файла"""
+    def __init__(self, manager, filename: str):
+        self.manager = manager
+        self.filename = filename
+        self.buffer = None
+
+    def __enter__(self):
+        # Здесь можно открыть файл на запись, если нужно:
+        #TODO работа с файлом
+        # self.file = self.manager._writer.open(f"{self.manager.path}/{self.filename}", "wb")
+        print(f"{self.filename}: Вход в контекст. Создаем буфер в памяти.")
+        self.buffer = io.BytesIO()
+        self.manager.current_context = self
+        return self.manager  # Возвращаем сам менеджер, чтобы вызывать write_to_file
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.manager.current_filename = None
+        if exc_type is not None:
+            print(f"{self.filename}: Контекст закрылся из-за ошибки: {exc_val}. Логика с удалением.")
+            self.buffer.close()
+            #TODO работа с файлом
+            #if fs.exists(filename): 
+            #   fs.rm_file(filename)
+        else:
+            #TODO работа с файлом
+            #fs.move(filename, new_filename)
+            try:
+                self.manager.memory_storage[self.filename] = self.buffer.getvalue()
+                print(f"{self.filename}: ObjectIO {self.filename} успешно сохранен ")
+                #TODO можно сбросить из буффера в файл
+            finally:
+                self.buffer.close()
+
+        return False
+
+
+class StagingManager:
+    def __init__(self, filepath: str, storage_options=None):
+        self.storage_options = storage_options or {}
+        self._writer, self.path = fsspec.core.url_to_fs(filepath, **self.storage_options)
+        self.current_context = None
+
+        # Структура: {"filename": b"содержимое файла в байтах"}
+        self.memory_storage = {}
+        self.schema = None
+
+    def set_schema(self,schema):
+        self.schema = schema
+    def open_file(self, filename: str):
+        """Фабричный метод, который вы будете вызывать в `with`"""
+        return StagingContext(self, filename)
+        
+        
+    def write(self, chunk):
+        if not self.current_context:
+            raise RuntimeError("Файл не открыт в контексте!")
+        self.current_context.buffer.write(chunk)
+        print(f"Пишем чанк размером {len(chunk)} байт в память для {self.current_context.filename}")
