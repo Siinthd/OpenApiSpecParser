@@ -4,6 +4,7 @@ import io
 import json
 from pyspark.sql.types import StructType
 from onetl.connection import SparkLocalFS
+from pyspark.sql import SparkSession
 from onetl.file import FileDFReader
 from onetl.file.format import JSON
 
@@ -326,6 +327,31 @@ class StagingManager:
         '''
         if not self.memory_storage:
             raise ValueError("Нет данных для преобразования в DataFrame")
+        
+        #временное решение - создаем спарк-сессию - переместить в контекст
+        jr = [
+            '/opt/work/jars/kafka-clients-3.5.0.jar', 
+            '/opt/work/jars/lz4-java-1.8.0.jar', 
+            '/opt/work/jars/postgresql-42.7.3.jar', 
+            '/opt/work/jars/slf4j-api-2.0.9.jar', 
+            '/opt/work/jars/snappy-java-1.1.10.5.jar', 
+            '/opt/work/jars/spark-sql-kafka-0-10_2.12-3.5.0.jar', 
+            '/opt/work/jars/spark-xml_2.12-0.18.0.jar', 
+            '/opt/work/jars/XmlSchema-2.2.0.jar', 
+            '/opt/work/jars/zstd-jni-1.5.5-10.jar',
+            '/opt/work/jars/kafka-clients-3.4.1.jar',
+            '/opt/work/jars/spark-token-provider-kafka-0-10_2.12-3.5.7.jar',
+            '/opt/work/jars/commons-pool2-2.11.1.jar', 
+            '/opt/work/jars/spark-sql-kafka-0-10_2.12-3.5.7.jar'
+        ]
+
+        jr = ",".join(jr)
+
+        spark = (
+            SparkSession.builder.appName("spark-app-name")
+            .config("spark.jars", jr)
+            .getOrCreate()
+        )
         #временное решение - забираем из словаря байты,конвертируем сначала в ютф,потом в json
         listval = [json.loads(value.decode('utf-8')) for value in self.memory_storage.values()]
         if self.schema:
