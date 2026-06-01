@@ -1,6 +1,13 @@
 from typing import Any, List, Dict, Optional
 import fsspec
 import io
+import json
+from pyspark.sql.types import StructType
+from onetl.connection import SparkLocalFS
+from onetl.file import FileDFReader
+from onetl.file.format import JSON
+
+
 
 class OpenAPIToSparkConverter:
     """Конвертер OpenAPI схем в Spark StructType JSON формат без зависимости от PySpark"""
@@ -301,6 +308,7 @@ class StagingManager:
 
     def set_schema(self,schema):
         self.schema = schema
+        
     def open_file(self, filename: str):
         """Фабричный метод, который вы будете вызывать в `with`"""
         return StagingContext(self, filename)
@@ -311,3 +319,51 @@ class StagingManager:
             raise RuntimeError("Файл не открыт в контексте!")
         self.current_context.buffer.write(chunk)
         print(f"Пишем чанк размером {len(chunk)} байт в память для {self.current_context.filename}")
+
+    def read(self):
+        '''
+        Читает данные из бэкграунда,формирует и возвращает DataFrame
+        '''
+        if not self.memory_storage:
+            raise ValueError("Нет данных для преобразования в DataFrame")
+        #временное решение - забираем из словаря байты,конвертируем сначала в ютф,потом в json
+        listval = [json.loads(value.decode('utf-8')) for value in self.memory_storage.values()]
+        if self.schema:
+            return spark.createDataFrame(listval, StructType.fromJson(self.schema))
+        return spark.createDataFrame(listval)
+    
+        #Логика с работы в fsspec
+        #решение с файлами
+        #fs = SparkLocalFS(spark=spark)
+
+        #решение с hdfs
+        #fs = SparkHDFS(
+        #    spark=spark,
+        #    cluster="my-cluster",  # Имя кластера для HWM и lineage
+        #    host="namenode.domain.com",  # Активный NameNode
+        #    port=8020,                  # Стандартный порт
+        #)
+        
+        
+        #решение с S3
+        #s3_connection = SparkS3(
+        #                        spark=spark,
+        #                        bucket="my-bucket",        # Имя корзины
+        #                        host="s3.amazonaws.com",   # Хост S3-совместимого хранилища
+        #                        protocol="https",          # or "http" для локального MinIO
+        #                        access_key="YOUR_ACCESS_KEY",
+        #                        secret_key="YOUR_SECRET_KEY",
+        #                        region="us-east-1",        # Регион, для MinIO можно пропустить
+        #                        # Для MinIO добавьте: extra={"path.style.access": True}
+        #                    )
+
+        #Выбор формата,закладываю логику
+        #json_format = JSON(encoding="UTF-8")
+
+
+        #reader = FileDFReader(
+        #    connection=fs,
+        #    format=json_format,
+        #    source_path=self.path, 
+        #)
+        #return reader.run()

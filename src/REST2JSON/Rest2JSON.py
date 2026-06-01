@@ -625,7 +625,7 @@ class REST2JSON(BaseAdapter):
         self.stgmain.set_schema(self.StypeSchema)
         #self.StypeSchema
         #3 начинаем формирование датафрейма
-        return 'df'
+        return self.stgmain.read()
     
     def get_data(self, ext_payload=None):
         """
