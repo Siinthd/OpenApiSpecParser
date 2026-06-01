@@ -6,7 +6,7 @@ def readme():
 
 setup(
     name='REST2JSON',
-    version='0.3.1',
+    version='0.3.2',
     author='Denis Kodolich',
     author_email='d.kodolich@concept-software.ru',
     description='metadriven-адаптер для RESTAPI запросов',

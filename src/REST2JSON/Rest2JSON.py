@@ -117,7 +117,7 @@ class REST2JSON(BaseAdapter):
         try:
             with fsspec.open(url) as f:
                 content = f.read()
-            print("Успешно")
+            print(" Успешно")
         except Exception as e:
             print('')
             print("Ошибка:", repr(e))

@@ -2,12 +2,12 @@ from typing import Any, List, Dict, Optional
 import fsspec
 import io
 import json
+import json
 from pyspark.sql.types import StructType
 from onetl.connection import SparkLocalFS
-from pyspark.sql import SparkSession
 from onetl.file import FileDFReader
 from onetl.file.format import JSON
-
+from pyspark.sql import SparkSession
 
 
 class OpenAPIToSparkConverter:
