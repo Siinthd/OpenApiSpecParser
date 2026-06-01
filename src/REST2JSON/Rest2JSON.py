@@ -114,8 +114,14 @@ class REST2JSON(BaseAdapter):
         """
 
         content = None
-        with fsspec.open(url) as f:
-            content = f.read()
+        try:
+            with fsspec.open(url) as f:
+                content = f.read()
+            print("Успешно")
+        except Exception as e:
+            print('')
+            print("Ошибка:", repr(e))
+            print("Тип ошибки:", type(e).__name__)
         return content
 
     def _load_specification_(self, src, url):
@@ -176,7 +182,6 @@ class REST2JSON(BaseAdapter):
                             print(f"Все попытки получения файла по ссылке {url} провалились, перехожу к обработке следующего url.")
                             return None
                     if response:
-                        print(' успешна')
                         return response
                 elif parsed.scheme == 'file':
                     path_part = url.replace('file://', '', 1)
