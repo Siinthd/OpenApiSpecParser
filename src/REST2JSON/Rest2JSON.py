@@ -1,5 +1,6 @@
 import os
 import mimetypes
+import io, base64
 import copy 
 import fsspec
 import hashlib
@@ -53,16 +54,16 @@ class ParserAdapter(OASParser):
             )
         return self._parser
 
-
 class REST2JSON(BaseAdapter):
     """
     Основной класс для преобразования REST API ответов в JSON формат.
     Объединяет функциональность парсера OpenAPI спецификации и HTTP клиента.
-    Тестируемый билд - функциональность изменена
+    Тестируемый билд - функциональность изменена, подогнан для MVP
+
     
     """
     
-    def __init__(self,transport:TransportInterface, config: dict = None, Context:any = None):
+    def __init__(self,transport:TransportInterface, config: dict = None, stgman:any = None):
         """
         Инициализация REST2JSON конвертера.
         
@@ -105,7 +106,7 @@ class REST2JSON(BaseAdapter):
         self.base_url = None
         self.ready = False
         self.StypeSchema = None
-        self.stgmain = Context
+        self.stgman = stgman
 
 
     def get_file(self, url):
@@ -384,7 +385,6 @@ class REST2JSON(BaseAdapter):
             "fields": []
         }
         
-        import json
         if header:
             fields = header.get('fields', [])
             fields += header_template.get('fields', [])
@@ -627,10 +627,10 @@ class REST2JSON(BaseAdapter):
         #1 получаем данные,приземляем файлы
         self.get_data(ext_payload)
         #2 получаем StructType- схему из специ/конфигурации
-        self.stgmain.set_schema(self.StypeSchema)
+        self.stgman.set_schema(self.StypeSchema)
         #self.StypeSchema
         #3 начинаем формирование датафрейма
-        return self.stgmain.read()
+        return self.stgman.read()
     
     def get_data(self, ext_payload=None):
         """
@@ -710,45 +710,39 @@ class REST2JSON(BaseAdapter):
         return payload
 
     def _execute(self, payload_list):
-        """
-        Выполнение запросов к API с обработкой заголовков и retry логикой.
         
-        Args:
-            data: Список словарей с данными для отправки
-            
-        Returns:
-            Его нет.
-            Бэкграундом пишуться файлы в указанный каталог.
-        """
-        #TODO: если учесть пагинацию,то  все равно придется добавлять и делать доступ к params/json
-        # вся логика по формированию пэйлоада,в формате кварг перенесена в _prepare_payload()
-        result = []
-
-        filename = ''
         with self.__transport as tr:
             for item in payload_list:
                 idx = hashlib.md5(json.dumps(item, sort_keys=True).encode()).hexdigest()
                 for attempt in range(self.retries):
                     try:
-                        bucket = []
                         resp = tr.request(**item)
                         resp.raise_for_status()
-                        content_type = tr.get_header().get('Content-Type') 
-                        ext = mimetypes.guess_extension(content_type.split(';')[0])
-                        filename = os.path.join(f"{idx}_content{ext}")
-                        with self.stgmain.open_file(filename) as f:
-                            for chunk in resp.iter_content(chunk_size=8192):
-                                f.write(chunk)
-                        if self.keep_headers:
-                            filename = os.path.join(f"{idx}_header{ext}")
-                            with self.stgmain.open_file(filename) as f:
-                                f.write(json.dumps(dict(tr.get_header()), indent=1).encode('utf-8'))
-                        else:
-                            result.append((b''.join(bucket)))
+                        content_type = tr.get_header().get('Content-Type', '')
+                        ext = mimetypes.guess_extension(content_type.split(';')[0]) or '.bin'
+                        filename = f"{idx}{ext}"
+                        with self.stgman.open_file(filename) as f:
+                            if self.keep_headers: # временное решение в случае keep_headers,т.к чтобы сформировать нужную структуру нужно получить контент целико
+                                buffer = io.BytesIO()
+                                for chunk in resp.iter_content(chunk_size=8192):
+                                    buffer.write(chunk)
+                                content_bytes = buffer.getvalue() 
+                                #TODO Нет решения. b'' не сериализуется,требуется ответ преобразовать в json(в строку,hex - неважно), далее снова в b'' с предварительным чтением всего тела
+                                #такое решение не подходит для продакшена,сделана была загушка для MVP
+                                content_bytes = json.loads(content_bytes.decode('utf-8'))
+                                package = {
+                                    "header": dict(tr.get_header()),
+                                    "content": content_bytes
+                                }
+                                json_str = json.dumps(package).encode('utf-8')
+                                f.write(json_str)
+                            else:
+                                for chunk in resp.iter_content(chunk_size=8192):
+                                    f.write(chunk)
                         break
                     except Exception as e:
                         print(f"Попытка {attempt + 1}/{self.retries} неудачна по причине: {e}")
                         if attempt == self.retries - 1:
                             raise KeyError(f'SRC: все {self.retries} попытки запроса провалились')
-        return True 
+        return True
  
