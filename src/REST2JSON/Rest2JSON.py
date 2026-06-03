@@ -380,6 +380,7 @@ class REST2JSON(BaseAdapter):
                 '''
         
         result = TEMPLATE.format(json.dumps(content))
+        print(result)
         return json.loads(result)
 
     def __check_schema_override(self, schema):
@@ -559,8 +560,7 @@ class REST2JSON(BaseAdapter):
                     raise TypeError('schema_override: некорректный формат параметра, ожидается схема DataFrame в json-формате')
             else:
                 return self.add_header_to_content(
-                    self.__parser_adapter.getStructTypeSchema(self.type_mapping),
-                ) 
+                    self.__parser_adapter.getStructTypeSchema(self.type_mapping)) 
 
     def prepare(self):
         """Подготовка адаптера к работе,
