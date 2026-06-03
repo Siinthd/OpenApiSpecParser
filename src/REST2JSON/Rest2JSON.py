@@ -8,7 +8,6 @@ import json
 from urllib.parse import urlparse
 from .utils.OASParser import OASParser
 from .utils.BaseAdapter import BaseAdapter
-from .utils.transport import TransportInterface
 
 
 
@@ -63,7 +62,7 @@ class REST2JSON(BaseAdapter):
     
     """
     
-    def __init__(self,transport:TransportInterface, config: dict = None, stgman:any = None):
+    def __init__(self,transport, config: dict = None, stgman:any = None):
         """
         Инициализация REST2JSON конвертера.
         
