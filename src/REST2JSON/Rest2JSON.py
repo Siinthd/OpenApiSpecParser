@@ -340,7 +340,7 @@ class REST2JSON(BaseAdapter):
             TypeError('Не удалось преобразовать schema_override в формат JSON')
         return result
        
-    def add_header_to_content(self, content, header):
+    def add_header_to_content(self, content):
         """
         Создание структуры данных, объединяющей заголовки и содержимое.
         Используется для кейса №6 (keep_headers = 1 + schema_override is null).
@@ -364,45 +364,22 @@ class REST2JSON(BaseAdapter):
                     "type": "struct",
                     "fields": [
                         {{
-                            "name": "headers",
+                            "name": "header",
                             "nullable": true,
-                            "type": {0},
+                            "type": string,
                             "metadata": {{}}
                         }},
                         {{
                             "name": "content",
                             "nullable": true,
-                            "type": {1},
+                            "type": {0},
                             "metadata": {{}}
                         }}
                     ]
                 }}
                 '''
-
-        header_template = {
-            "type": "struct",
-            "fields": []
-        }
         
-        if header:
-            fields = header.get('fields', [])
-            fields += header_template.get('fields', [])
-            header['fields'] = fields
-        elif self.headers_fallback:
-            for i, j in self.headers_fallback.items():
-                if i not in self.override_header_list:
-                    header_param = {
-                        "name": i,
-                        "nullable": True,
-                        "type": self.type_mapping.get(j, 'string'),
-                        "metadata": {}
-                    }
-                    header_template['fields'].append(header_param)
-            header = header_template
-        else:
-            header = header_template
-        
-        result = TEMPLATE.format(json.dumps(header), json.dumps(content))
+        result = TEMPLATE.format(json.dumps(content))
         return json.loads(result)
 
     def __check_schema_override(self, schema):
@@ -583,8 +560,7 @@ class REST2JSON(BaseAdapter):
             else:
                 return self.add_header_to_content(
                     self.__parser_adapter.getStructTypeSchema(self.type_mapping),
-                    self.__parser_adapter.getStructTypeHeader(self.type_mapping)
-                )  # Кейс 6
+                ) 
 
     def prepare(self):
         """Подготовка адаптера к работе,
