@@ -366,7 +366,7 @@ class REST2JSON(BaseAdapter):
                         {{
                             "name": "header",
                             "nullable": true,
-                            "type": string,
+                            "type": "string",
                             "metadata": {{}}
                         }},
                         {{
@@ -380,7 +380,6 @@ class REST2JSON(BaseAdapter):
                 '''
         
         result = TEMPLATE.format(json.dumps(content))
-        print(result)
         return json.loads(result)
 
     def __check_schema_override(self, schema):
