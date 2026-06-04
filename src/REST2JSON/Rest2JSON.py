@@ -8,7 +8,7 @@ import json
 from urllib.parse import urlparse
 from .utils.OASParser import OASParser
 from .utils.BaseAdapter import BaseAdapter
-
+from pyspark.sql.types import StructType
 
 
 class ParserAdapter(OASParser):
@@ -95,7 +95,9 @@ class REST2JSON(BaseAdapter):
          self.schema_override,
          self.keep_headers,
          self.headers_fallback,
-         self.schema_infer_fallback) = self.__load_configuration(config)
+         self.schema_infer_fallback,
+         self.inferschema,
+         self.schema_conf) = self.__load_configuration(config)
         # Получаем спецификацию
         self.spec = None
         # Загрузка адаптера парсера
@@ -282,6 +284,8 @@ class REST2JSON(BaseAdapter):
             schema_override = src_data.get('schema_override', None)
             keep_headers = src_data.get('schema_keep_header', None)
             schema_infer_fallback = src_data.get('schema_infer_fallback', None)
+            inferschema = src_data.get('schema_infer_fallback', None) 
+            schema_conf = src_data.get('schema_conf', None) 
 
             if proc_conn_params:
                 endpoint_override = proc_conn_params.get('endpoint_override', None)
@@ -297,7 +301,7 @@ class REST2JSON(BaseAdapter):
             return (payload, base_override, spec_fallback, spec_url, auth_header, 
                     auth_body, name, retries, endpoint_override, method_override, 
                     timeout, pagination, page_param, type_mapping, schema_override, 
-                    keep_headers, headers_fallback, schema_infer_fallback)
+                    keep_headers, headers_fallback, schema_infer_fallback,inferschema,schema_conf)
         except Exception as e:
             print(e)
                 
@@ -592,6 +596,23 @@ class REST2JSON(BaseAdapter):
         #защита от запуска run без prepare()
         self.ready = True
 
+    def _resolve_schema(self,inferschema: int, schema_conf: Optional[dict] = None, schema_provider: Optional[dict] = None,):
+
+        if schema_conf:
+            if not schema_conf:
+                raise ValueError("Требуется schema_conf")
+            return StructType.fromJson(json.loads(schema_conf))
+        # если стоит флаг inferschema=true, нужно при неудачной попытке получения схемы инферим
+        # если стоит флаг inferschema=false, нужно мы никогда не инферим
+        elif schema_conf is None and (inferschema is False or inferschema is None):
+            if not schema_provider:
+                raise ValueError("Схема для источника не получена, schema_provider")
+            schema_json = schema_provider
+            return StructType.fromJson(schema_json)
+
+        else:
+            return None
+
     def run(self, ext_payload=None):
         '''
         Для теста contex эта функция пока не возвращает датафрейм
@@ -601,12 +622,22 @@ class REST2JSON(BaseAdapter):
         #1 получаем данные,приземляем файлы
         self.get_data(ext_payload)
         #2 получаем StructType- схему из специ/конфигурации
-        self.stgman.set_schema(self.StypeSchema)
+
+        self.stgman.set_schema(
+            self._resolve_schema(
+            inferschema=self.inferschema,
+            schema_conf=self.schema_conf,
+            schema_provider=self.StypeSchema if self.schema_conf == None else None,
+            # мне будут передавать в любом случае
+        ))
+        
+
+        
         #TODO createDF() - заглушка для  формирования Датафрейма из JSON в Менеджере Контекста - Использует спарк из контекста
         return self.createDataFrame()
     
     def createDataFrame(self):
-        from pyspark.sql.types import StructType
+        
         #TODO Два адаптера на текущем этапе обрабатывают полученные данные по-своему, нужен свой динамический парсер-обработчик.
         #Архитектурно, stgman должен прочесть файлы и дать их адаптеру, но сейчас это memory_storage
         if not self.stgman.memory_storage:
@@ -617,7 +648,7 @@ class REST2JSON(BaseAdapter):
         listval = [json.loads(value.decode('utf-8')) for value in self.stgman.memory_storage.values()]
 
         if self.stgman.schema:
-            return self.stgman.spark.createDataFrame(listval, StructType.fromJson(self.stgman.schema))
+            return self.stgman.spark.createDataFrame(listval, self.stgman.schema)
         return self.stgman.spark.createDataFrame(listval)
     
     
