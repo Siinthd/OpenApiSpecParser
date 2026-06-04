@@ -1,7 +1,8 @@
 import os
 import mimetypes
-import io, base64
+import io
 import copy 
+from typing import Optional
 import fsspec
 import hashlib
 import json
