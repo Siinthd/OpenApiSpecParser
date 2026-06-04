@@ -602,9 +602,24 @@ class REST2JSON(BaseAdapter):
         self.get_data(ext_payload)
         #2 получаем StructType- схему из специ/конфигурации
         self.stgman.set_schema(self.StypeSchema)
-        #self.StypeSchema
-        #3 начинаем формирование датафрейма
-        return self.stgman.read()
+        #TODO createDF() - заглушка для  формирования Датафрейма из JSON в Менеджере Контекста - Использует спарк из контекста
+        return self.createDataFrame()
+    
+    def createDataFrame(self):
+        from pyspark.sql.types import StructType
+        #TODO Два адаптера на текущем этапе обрабатывают полученные данные по-своему, нужен свой динамический парсер-обработчик.
+        #Архитектурно, stgman должен прочесть файлы и дать их адаптеру, но сейчас это memory_storage
+        if not self.stgman.memory_storage:
+            raise ValueError("Нет данных в staging для преобразования в DataFrame")
+        if not self.stgman.spark:
+            raise RuntimeError("В StagingManager не передана активная сессия Spark!")
+
+        listval = [json.loads(value.decode('utf-8')) for value in self.memory_storage.values()]
+
+        if self.schema:
+            return self.stgman.spark.createDataFrame(listval, StructType.fromJson(self.schema))
+        return self.stgman.spark.createDataFrame(listval)
+    
     
     def get_data(self, ext_payload=None):
         """
