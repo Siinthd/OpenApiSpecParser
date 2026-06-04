@@ -614,7 +614,7 @@ class REST2JSON(BaseAdapter):
         if not self.stgman.spark:
             raise RuntimeError("В StagingManager не передана активная сессия Spark!")
 
-        listval = [json.loads(value.decode('utf-8')) for value in self.memory_storage.values()]
+        listval = [json.loads(value.decode('utf-8')) for value in self.stgman.memory_storage.values()]
 
         if self.schema:
             return self.stgman.spark.createDataFrame(listval, StructType.fromJson(self.schema))
