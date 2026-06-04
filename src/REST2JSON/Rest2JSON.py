@@ -616,8 +616,8 @@ class REST2JSON(BaseAdapter):
 
         listval = [json.loads(value.decode('utf-8')) for value in self.stgman.memory_storage.values()]
 
-        if self.schema:
-            return self.stgman.spark.createDataFrame(listval, StructType.fromJson(self.schema))
+        if self.stgman.schema:
+            return self.stgman.spark.createDataFrame(listval, StructType.fromJson(self.stgman.schema))
         return self.stgman.spark.createDataFrame(listval)
     
     
