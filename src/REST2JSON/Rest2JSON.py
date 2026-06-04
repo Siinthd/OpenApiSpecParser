@@ -63,7 +63,7 @@ class REST2JSON(BaseAdapter):
     
     """
     
-    def __init__(self,transport, config: dict = None, stgman:any = None):
+    def __init__(self,transport, config: dict = None, stgman:any = None, **kwargs):
         """
         Инициализация REST2JSON конвертера.
         
@@ -631,8 +631,6 @@ class REST2JSON(BaseAdapter):
             schema_provider=self.StypeSchema if self.schema_conf == None else None,
             # мне будут передавать в любом случае
         ))
-        
-
         
         #TODO createDF() - заглушка для  формирования Датафрейма из JSON в Менеджере Контекста - Использует спарк из контекста
         return self.createDataFrame()
