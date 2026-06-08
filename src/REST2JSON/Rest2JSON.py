@@ -63,7 +63,7 @@ class REST2JSON(BaseAdapter):
     
     """
     
-    def __init__(self,transport, config: dict = None, stgman:any = None, **kwargs):
+    def __init__(self,transport, config: dict = None, context:any = None, **kwargs):
         """
         Инициализация REST2JSON конвертера.
         
@@ -81,7 +81,7 @@ class REST2JSON(BaseAdapter):
         # Загружаем конфигурацию
         (self.payload,
          self.base_override,
-         self.OpenAPISpecYAML,
+         self.spec_fallback,
          self.OpenAPISpecYAMLURL,
          self.auth_header,
          self.auth_body,
@@ -108,23 +108,16 @@ class REST2JSON(BaseAdapter):
         self.base_url = None
         self.ready = False
         self.StypeSchema = None
-        self.stgman = stgman
-
+        self.context = context
 
     def get_file(self, url):
         """
         используем транспорт чтобы получить файл
         """
-
         content = None
-        try:
-            with fsspec.open(url) as f:
-                content = f.read()
-            print(" Успешно")
-        except Exception as e:
-            print('')
-            print("Ошибка:", repr(e))
-            print("Тип ошибки:", type(e).__name__)
+        with fsspec.open(url) as f:
+            content = f.read()
+        print(" Успешно")
         return content
 
     def _load_specification_(self, src, url):
@@ -572,29 +565,36 @@ class REST2JSON(BaseAdapter):
         в планах сделать зависимость от полноты конфига
         Кроме того поместить получение спеки
         """
-        #TODO: спеку получаем только тогда,когда соблюдены все условия
-        # Получаем спецификацию
-        self.spec = self._load_specification_(self.OpenAPISpecYAML, self.OpenAPISpecYAMLURL)
-        #TODO: спеку парсим только тогда,когда соблюдены все условия
-        # Загрузка адаптера парсера
-        self.__parser_adapter = ParserAdapter(
-            self.OpName, 
-            self.endpoint_override, 
-            self.method_override, 
-            self.schema_infer_fallback, 
-            self.spec
-        )
-        #TODO: Нужна вилка для источник-спека/источник-файл конфигурации
-        self.__parser_adapter = self.__parser_adapter.get_parser()
-        self.entity_config = self.__parser_adapter.request
-        #TODO: все овверайд методы резолвить здесь же
-
-        self.override_header_list = self.get_header_keys_from_override()
+        if None in (self.endpoint_override,self.method_override,self.base_override,self.schema_override): # эндпоинт + метод + база = запрос, schema_override - 
+        # Получаем спецификацию.если она в конфиге - возвращаем ее
+            self.spec = self._load_specification_(self.spec_fallback, self.OpenAPISpecYAMLURL)
+            # Загрузка адаптера парсера
+            self.__parser_adapter = ParserAdapter(
+                self.OpName, 
+                self.endpoint_override, 
+                self.method_override, 
+                self.schema_infer_fallback, 
+                self.spec
+            )
+            self.__parser_adapter = self.__parser_adapter.get_parser()
+            enpoint_config = self.__parser_adapter.request
+        
+        if not enpoint_config: # если парсер не отработал
+            self.entity_config =  {
+                    "base_url": self.base_override,
+                    "method": self.method_override,
+                    "url": self.endpoint_override,
+                }
+        else: # параметры в конфиге в приоритете
+            self.entity_config =  {
+                    "base_url": enpoint_config["base_url"] or self.base_override,
+                    "method": enpoint_config["method"] or self.method_override,
+                    "url": enpoint_config["url"] or self.endpoint_override,
+                }
+    
+        self.override_header_list = self.get_header_keys_from_override() #TODO Deprecated
         self.base_url = self.__getbase_url(self.entity_config)
-
-
         self.StypeSchema = self.get_schema()
-        #защита от запуска run без prepare()
         self.ready = True
 
     def _resolve_schema(self,inferschema: int, schema_conf: Optional[dict] = None, schema_provider: Optional[dict] = None,):
@@ -624,7 +624,7 @@ class REST2JSON(BaseAdapter):
         self.get_data(ext_payload)
         #2 получаем StructType- схему из специ/конфигурации
 
-        self.stgman.set_schema(
+        self.context.stgman.set_schema(
             self._resolve_schema(
             inferschema=self.inferschema,
             schema_conf=self.schema_conf,
@@ -639,17 +639,16 @@ class REST2JSON(BaseAdapter):
         
         #TODO Два адаптера на текущем этапе обрабатывают полученные данные по-своему, нужен свой динамический парсер-обработчик.
         #Архитектурно, stgman должен прочесть файлы и дать их адаптеру, но сейчас это memory_storage
-        if not self.stgman.memory_storage:
+        if not self.context.stgman.memory_storage:
             raise ValueError("Нет данных в staging для преобразования в DataFrame")
-        if not self.stgman.spark:
+        if not self.context.spark:
             raise RuntimeError("В StagingManager не передана активная сессия Spark!")
 
-        listval = [json.loads(value.decode('utf-8')) for value in self.stgman.memory_storage.values()]
+        listval = [json.loads(value.decode('utf-8')) for value in self.context.stgman.memory_storage.values()]
 
-        if self.stgman.schema:
-            return self.stgman.spark.createDataFrame(listval, self.stgman.schema)
-        return self.stgman.spark.createDataFrame(listval)
-    
+        if self.context.stgman.schema:
+            return self.context.spark.createDataFrame(listval, self.context.stgman.schema)
+        return self.context.spark.createDataFrame(listval)
     
     def get_data(self, ext_payload=None):
         """
@@ -707,7 +706,8 @@ class REST2JSON(BaseAdapter):
         if not self.auth_header and self.auth_body:
             items = [{**item, **self.auth_body} for item in items]
         # Базовые заголовки
-        headers = {**self.entity_config.get('headers', {}), **self.auth_header}
+        headers = {**self.entity_config.get('headers', {}), **self.auth_header} #TODO на данный момент этот self.entity_config.get('headers', {}) - ничего не содержит,но Content-Type прокинуть придеться в будущем
+                                                                                #OASPARSER.py - line 566
         # Формируем итоговый список запросов
         payload = []
         for item in items:
