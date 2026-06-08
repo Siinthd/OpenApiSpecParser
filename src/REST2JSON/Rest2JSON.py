@@ -740,7 +740,7 @@ class REST2JSON(BaseAdapter):
                         content_type = tr.get_header().get('Content-Type', '')
                         ext = mimetypes.guess_extension(content_type.split(';')[0]) or '.bin'
                         filename = f"{idx}{ext}"
-                        with self.stgman.open_file(filename) as f:
+                        with self.context.stgman.open_file(filename) as f:
                             if self.keep_headers: # временное решение в случае keep_headers,т.к чтобы сформировать нужную структуру нужно получить контент целико
                                 buffer = io.BytesIO()
                                 for chunk in resp.iter_content(chunk_size=8192):
