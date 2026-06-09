@@ -120,6 +120,11 @@ class REST2JSON(BaseAdapter):
         print(" Успешно")
         return content
 
+    def get_spec(self):
+        if not self.ready:
+            raise RuntimeError('Вы пытаетесь начать загрузку данных без подготовки адаптера.')
+        return self.spec
+    
     def _load_specification_(self, src, url):
         """
         Загрузка OpenAPI спецификации из различных источников.
